@@ -3,8 +3,6 @@ name: Build Android APK
 on:
   push:
     branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
   workflow_dispatch:
 
 jobs:
@@ -19,8 +17,14 @@ jobs:
       run: |
         if [ ! -f www/index.html ]; then
           mkdir -p www/visuals
-          for d in audio backgrounds images monsters obstacles player skins survival victory videos; do
-            [ -d "$d" ] && mv "$d" www/visuals/
+          # a "visuals" folder, if you uploaded one, goes first; every other folder at the top level is a visuals sub-folder
+          if [ -d visuals ]; then cp -a visuals/. www/visuals/ && rm -rf visuals; fi
+          for d in */; do
+            d="${d%/}"
+            case "$d" in
+              www|android|node_modules|java) ;;
+              *) mv "$d" www/visuals/ ;;
+            esac
           done
           [ -d java ] && mv java www/
           for f in *; do
@@ -31,8 +35,33 @@ jobs:
           done
         fi
         test -f www/index.html
-        ls www | head -30
         ls www/visuals
+
+    - name: Check the game files (fix upper/lower case, list anything missing)
+      run: |
+        python3 - <<'PY'
+        import os, re, shutil
+        from urllib.parse import unquote
+        root = "www"
+        pat = re.compile(r'''["'(]((?:\./)?visuals/[^"'()\s?#]+\.(?:png|jpg|jpeg|gif|webp|mp3|ogg|m4a|wav|mp4|woff2|svg))''', re.I)
+        refs = set()
+        for f in os.listdir(root):
+            if f.endswith((".html", ".js", ".css")):
+                s = open(os.path.join(root, f), errors="ignore").read()
+                for m in pat.finditer(s): refs.add(unquote(m.group(1)).lstrip("./"))
+        missing = []
+        for r in sorted(refs):
+            p = os.path.join(root, r)
+            if os.path.exists(p): continue
+            d, b = os.path.split(p)
+            hit = [x for x in os.listdir(d) if x.lower() == b.lower()] if os.path.isdir(d) else []
+            if hit:
+                shutil.copy(os.path.join(d, hit[0]), p); print("case fixed:", r, "<-", hit[0])
+            else:
+                missing.append(r)
+        print(len(refs), "files referenced;", len(missing), "missing")
+        for r in missing: print("MISSING:", r)
+        PY
 
     - name: Set up Node.js
       uses: actions/setup-node@v4
