@@ -1,0 +1,161 @@
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+
+    <title>RUN MIL!</title>
+
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="howto.css">
+</head>
+
+<body>
+
+    <!-- START GATE: one click / key press -> fullscreen -> loading video -->
+    <div id="start-gate" class="screen">
+        <img class="gate-logo" src="visuals/images/logo.png" alt="RUN MIL!">
+        <p class="gate-text">CLICK OR PRESS ANY KEY TO START</p>
+        <small class="gate-sub">The game opens in fullscreen</small>
+    </div>
+
+    <!-- SCREEN 1: LOADING VIDEO -->
+
+ <!-- SCREEN 1: LOADING VIDEO -->
+<div id="loading-screen" class="screen">
+    <video id="loading-video" muted playsinline preload="auto">
+        <source src="visuals/videos/LOADING%20PAGE.mp4" type="video/mp4">
+    </video>
+</div>
+
+<!-- SCREEN 2: TITLE VIDEO -->
+<div id="title-screen" class="screen hidden">
+    <video id="title-video" muted loop playsinline preload="auto">
+        <source src="visuals/videos/TITLE PAGE.mp4" type="video/mp4">
+    </video>
+</div>
+
+
+    <!-- SCREEN 3: MAIN MENU -->
+
+    <div id="main-menu" class="screen hidden">
+      <div class="menu-stage">
+
+        <h1 class="sr-only">RUN MIL! - Run. Survive. Escape.</h1>
+        <img class="logo" src="visuals/images/logo.png" alt="RUN MIL! Run. Survive. Escape.">
+
+        <!-- PROFILE (top left) -->
+        <div class="pnl profile" id="profile-btn">
+            <div class="avatar"><canvas class="avatar-gif" id="avatar-img" width="180" height="180" role="img" aria-label="Your avatar"></canvas></div>
+            <div class="profile-info">
+                <div class="level" id="level-text">Lv. 1</div>
+                <div class="xp-bar"><div class="xp-fill" id="xp-fill"></div><span id="xp-text">0 / 100 XP</span></div>
+            </div>
+        </div>
+
+        <!-- CURRENCY (top centre) -->
+        <div class="pill coin-pill">
+            <img src="visuals/images/icon-coin.png" alt="">
+            <span id="coin-count">1,250</span>
+        </div>
+        <div class="pill gem-pill">
+            <img src="visuals/images/icon-gem.png" alt="">
+            <span id="gem-count">50</span>
+        </div>
+
+        <!-- ACHIEVEMENTS + SETTINGS (top right) -->
+        <button class="icon-btn achievements" id="achievements-btn">
+            <img src="visuals/images/icon-trophy.png" alt=""><span>ACHIEVEMENTS</span>
+            <i class="badge" id="ach-badge" hidden></i>
+        </button>
+        <button class="icon-btn howto" id="howto-btn" aria-label="How to play">
+            <span class="q">?</span><span>HOW TO<br>PLAY</span>
+        </button>
+        <button class="icon-btn settings" id="settings-btn">
+            <img src="visuals/images/icon-gear.png" alt=""><span>SETTINGS</span>
+        </button>
+
+        <!-- LEFT MENU -->
+        <button class="menu-btn mb1" id="customize-btn">
+            <img src="visuals/images/icon-shirt.png" alt=""><b>CHARACTER<br>CUSTOMIZATION</b><em>&#10095;</em>
+        </button>
+        <button class="menu-btn mb2" id="shop-btn">
+            <img src="visuals/images/icon-shield.png" alt=""><b>EQUIPMENT<br>SHOP</b><em>&#10095;</em>
+        </button>
+
+        <button class="menu-btn mb3" id="collect-btn">
+            <span class="mi">&#128214;</span><b>COLLECTION<br>BOOK</b><em>&#10095;</em>
+        </button>
+
+        <!-- CENTRE CHARACTER (animated GIF) -->
+        <canvas class="hero" id="hero" width="560" height="560" role="img" aria-label="Player character running"></canvas>
+
+        <!-- LOCATION BOARD (right) -->
+        <aside class="board">
+            <button class="board-title" id="map-btn" aria-label="Open location map">PANABO CITY</button>
+            <button class="loc selected" data-loc="park"><img src="visuals/images/loc-park.png" alt=""><span>Panabo City Park</span></button>
+            <button class="loc locked" data-loc="dnsc"><img src="visuals/images/loc-dnsc.png" alt=""><span>DNSC Campus</span><img class="lk" src="visuals/images/icon-lock.png" alt="Locked"></button>
+            <button class="loc locked" data-loc="mangrove"><img src="visuals/images/loc-mangroves.png" alt=""><span>Panabo Mangrove Forest</span><img class="lk" src="visuals/images/icon-lock.png" alt="Locked"></button>
+            <button class="loc locked" data-loc="seawall"><img src="visuals/images/loc-seawall.png" alt=""><span>Panabo Seawall</span><img class="lk" src="visuals/images/icon-lock.png" alt="Locked"></button>
+            <button class="loc locked more" data-loc="locked"><img class="lock" src="visuals/images/icon-lock.png" alt=""><span>More Locations to Unlock!</span></button>
+        </aside>
+
+        <!-- DAILY MISSIONS (bottom left) -->
+        <button class="pnl missions" id="missions-btn">
+            <img class="m-icon" src="visuals/images/icon-mission.png" alt="">
+            <div class="m-body">
+                <div class="m-title">DAILY MISSIONS</div>
+                <div class="m-text" id="mission-text">Collect 50 Coins</div>
+                <div class="m-bar"><div class="m-fill" id="mission-fill"></div><span id="mission-count">0 / 50</span></div>
+            </div>
+            <div class="m-reward"><img src="visuals/images/icon-coin.png" alt=""><b>+100</b></div>
+        </button>
+
+        <!-- PLAY -->
+        <div class="play-wrap">
+            <button id="play-btn" class="play-button"><i></i><span>PLAY</span></button>
+        </div>
+
+        <!-- PLAYER STATS (bottom right) -->
+        <button class="pnl stats" id="stats-btn" aria-label="Open player profile">
+            <img class="crown" src="visuals/images/icon-crown.png" alt="">
+            <div class="s-title"><img src="visuals/images/icon-chart.png" alt="">PLAYER STATS</div>
+            <div class="s-row"><span>Best Score</span><b id="stat-best">: 0</b></div>
+            <div class="s-row"><span>Longest Run</span><b id="stat-run">: 0 m</b></div>
+            <div class="s-row"><span>Total Coins</span><b id="stat-coins">: 1,250</b></div>
+            <div class="s-row"><span>Total Play Time</span><b id="stat-time">: 0h 0m</b></div>
+        </button>
+
+        <!-- MODE BANNER -->
+        <div class="banner"><i></i><span>ENDLESS RUN &bull; MONSTER SURVIVAL</span><i></i></div>
+
+        <div class="toast" id="menu-toast"></div>
+      </div>
+    </div>
+
+
+    <!-- GAME (opens on top of the menu when PLAY is pressed) -->
+    <iframe id="game-frame" title="RUN MIL! game" allow="fullscreen; autoplay" hidden></iframe>
+
+    <!-- JAVASCRIPT -->
+
+    <div id="rotate-hint"><div>&#8635;<br>Please rotate your device<br>to landscape</div></div>
+
+    <script src="assets.js"></script>
+    <script src="visuals/audio/sounds.js"></script>
+    <script src="audio.js"></script>
+    <script src="characters.js"></script>
+    <script src="character.js"></script>
+    <script src="hero.js"></script>
+    <script src="script.js"></script>
+    <script src="collect.js"></script>
+    <script src="screens.js"></script>
+    <script src="howto.js"></script>
+
+</body>
+
+</html>

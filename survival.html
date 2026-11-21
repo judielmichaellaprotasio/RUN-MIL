@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>RUN MIL! - Monster Survival</title>
+    <link rel="stylesheet" href="survival.css">
+    <link rel="stylesheet" href="howto.css">
+    <link rel="stylesheet" href="touch.css">
+</head>
+<body>
+    <div id="wrap">
+        <div id="stage">
+            <div id="bgwrap"><img id="bgimg" alt=""></div>
+            <canvas id="game" width="960" height="540"></canvas>
+
+            <!-- in-level HUD -->
+            <div id="hud" hidden>
+                <div id="lvname"></div>
+                <div id="waves"><div id="wbar"><i id="wfill"></i></div><div id="wnodes"></div><div id="wtext"></div></div>
+                <button id="pausebtn" aria-label="Pause">&#10074;&#10074;</button>
+                <div id="keys"><b>A</b><b>D</b> run &bull; <b>W</b><b>S</b> up / down &bull; <b>SPACE</b> jump &bull; <b>C</b> duck &bull; <b>P</b> punch &bull; <b>K</b> kick &bull; <b>L</b> special &bull; <b>1</b>-<b>4</b> weapons &bull; <b>B</b> aabb</div>
+                <div id="hp"><canvas id="portrait" width="120" height="120"></canvas>
+                    <div id="bars">
+                        <div class="brow"><span>HP</span><div id="hpbar"><i id="hpfill"></i></div><b id="hptxt">100</b></div>
+                        <div class="brow"><span>EN</span><div id="enbar"><i id="enfill"></i></div><b id="entxt"></b></div>
+                    </div>
+                </div>
+                <div id="target" hidden><canvas id="tport" width="44" height="44"></canvas><div><span id="tname">RAT</span><div id="tbar"><i id="tfill"></i></div></div></div>
+                <div id="combo" hidden><small>COMBO</small><b id="cnum">0</b></div>
+                <div id="loot"><img src="visuals/images/icon-coin.png" alt="" onerror="this.outerHTML='&#129689;'"><b id="lcoin">0</b><img src="visuals/images/icon-gem.png" alt="" onerror="this.outerHTML='&#128142;'"><b id="lgem">0</b></div>
+                <div id="boss" hidden><span>&#128128; THE BOSS</span><div id="bossbar"><i id="bossfill"></i></div><b id="bosshp"></b></div>
+                <div id="bw" hidden>
+                    <div class="bw-vig"></div><div class="bw-rays"></div>
+                    <div class="bw-band top"><div class="bw-stripe"></div><div class="bw-tick"><span></span></div></div>
+                    <div class="bw-band bot"><div class="bw-tick"><span></span></div><div class="bw-stripe"></div></div>
+                    <div class="bw-core">
+                        <div class="bw-ring"></div><div class="bw-ring r2"></div><div class="bw-ring r3"></div>
+                        <img class="bw-face" src="visuals/survival/shock_warn.webp" alt="">
+                        <div class="bw-title" data-t="WARNING">WARNING</div>
+                        <div class="bw-sub"><span id="bw-name">THE BOSS</span> IS APPROACHING!</div>
+                    </div>
+                    <div class="bw-scan"></div><div class="bw-flash"></div>
+                </div>
+                <img id="shock" src="visuals/survival/shock.webp" alt="" hidden>
+                <div id="warn"></div>
+                <div id="toast"></div>
+                <div id="flash"></div>
+            </div>
+
+            <!-- level select -->
+            <div id="select">
+                <div id="sel-top"><button id="sel-back">&#8249; MAIN MENU</button><h1>MONSTER SURVIVAL</h1><span></span></div>
+                <p id="sel-sub">Survive 5 waves in every level. Beat the boss to unlock the next one!</p>
+                <div id="cards"></div>
+            </div>
+
+            <div id="over" class="panel" hidden>
+                <div class="ov-left">
+                    <h1>YOU WERE DEFEATED</h1>
+                    <p id="over-sum"></p>
+                    <div class="btns"><button id="retry" class="gold">TRY AGAIN</button><button id="over-levels">LEVELS</button><button id="over-home">MAIN MENU</button></div>
+                </div>
+                <div class="ov-right" id="aabb-calc"></div>
+            </div>
+
+            <div id="clear" class="panel" hidden>
+                <h1>LEVEL CLEARED!</h1>
+                <p id="clear-sum"></p>
+                <div class="btns"><button id="next" class="gold">NEXT LEVEL</button><button id="clear-levels">LEVELS</button><button id="clear-home">MAIN MENU</button></div>
+            </div>
+
+            <div id="pause" class="panel" hidden>
+                <h1>PAUSED</h1>
+                <p id="engine"></p>
+                <div class="btns"><button id="resume" class="gold">RESUME</button><button id="tolevels">LEVELS</button><button id="howto-pause">HOW TO PLAY</button><button id="quit">MAIN MENU</button></div>
+            </div>
+        </div>
+    </div>
+    <script src="assets.js"></script>
+    <script src="visuals/audio/sounds.js"></script>
+    <script src="audio.js"></script>
+    <script src="characters.js"></script>
+    <script src="skinart.js"></script>
+    <script src="character.js"></script>
+    <script src="hero.js"></script>
+    <script src="survival-anim.js"></script>
+    <script src="survival-mon.js"></script>
+    <script src="survival-mon2.js"></script>
+    <script src="survival-mon3.js"></script>
+    <script src="survival-mon4.js"></script>
+    <script src="survival-mon5.js"></script>
+    <script src="survival-mon6.js"></script>
+    <script src="survival-mon7.js"></script>
+    <script src="survival-pu.js"></script>
+    <script src="java/aabb.js" onerror="window.__aabbMissing=1"></script>
+    <script src="aabb-boot.js"></script>
+    <script src="howto.js"></script>
+    <script src="touch.js"></script>
+    <script src="survival.js"></script>
+</body>
+</html>

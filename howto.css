@@ -1,0 +1,186 @@
+/* =========================================================
+   HOW TO PLAY / game mechanics / AABB calculation  (howto.js)
+   Everything is sized in em so the same CSS works in the menu (index.html), Endless and Monster Survival.
+========================================================= */
+#rmx, .rmx-mech { position: fixed; inset: 0; z-index: 9000; display: flex; align-items: center; justify-content: center; padding: 1.2em;
+    background: radial-gradient(ellipse at 50% 20%, rgba(26, 42, 120, .94), rgba(4, 7, 26, .97) 80%); color: #fff;
+    font: 700 clamp(12px, 1.9vmin, 19px)/1.25 "Teko", "Arial Narrow", Impact, sans-serif; letter-spacing: .02em; }
+#rmx[hidden], .rmx-mech[hidden] { display: none; }
+#rmx *, .rmx-mech * { box-sizing: border-box; }
+.rmx-card { width: min(76em, 100%); max-height: 100%; display: flex; flex-direction: column; gap: .7em; background: rgba(8, 14, 48, .92);
+    border: .22em solid #4a6cff; border-radius: .9em; padding: .9em 1.1em 1em; box-shadow: 0 0 2.4em rgba(74, 108, 255, .35), inset 0 0 1.6em rgba(60, 90, 220, .25); }
+.rmx-head { display: flex; align-items: center; justify-content: space-between; gap: 1em; }
+.rmx-head h2 { margin: 0; font-size: 2.1em; line-height: 1; color: #ffd24a; text-shadow: 0 .08em 0 #5a2a00; letter-spacing: .04em; }
+.rmx-x { font: inherit; font-size: 1.5em; line-height: 1; width: 1.6em; height: 1.6em; padding: 0; color: #fff; cursor: pointer; border: .1em solid #4a6cff; border-radius: .4em; background: linear-gradient(#1a2c80, #0b1446); }
+.rmx-x:hover { filter: brightness(1.25); }
+.rmx-tabs { display: flex; gap: .5em; flex-wrap: wrap; }
+.rmx-tab { font: inherit; font-size: 1.1em; padding: .25em .9em; color: #b8c4ff; cursor: pointer; border: .12em solid #34479a; border-radius: .5em; background: #0c1650; letter-spacing: .05em; }
+.rmx-tab:hover { color: #fff; border-color: #4a6cff; }
+.rmx-tab.on { color: #1a0f00; background: linear-gradient(#ffd24a, #ff9a10); border-color: #8a3a00; }
+.rmx-body { overflow-y: auto; min-height: 0; padding-right: .3em; scrollbar-width: thin; scrollbar-color: #4a6cff #0a1040; }
+.rmx-pane[hidden] { display: none; }
+.rmx-lead { margin: 0 0 .7em; font-size: 1.15em; color: #cfd8ff; font-weight: 600; max-width: 62em; line-height: 1.3; }
+.rmx-lead b { color: #ffd24a; }
+.rmx-h { margin: .2em 0 .45em; font-size: 1.25em; color: #7ad8ff; letter-spacing: .08em; }
+
+/* key lists */
+.rmx-keys { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5em .9em; }
+.rmx-k { display: flex; gap: .7em; align-items: center; padding: .4em .6em; border: .1em solid #243062; border-radius: .6em; background: rgba(14, 24, 80, .7); min-width: 0; }
+.rmx-kc { flex: none; display: flex; gap: .25em; min-width: 5.2em; justify-content: center; }
+.rmx-kc b { min-width: 1.9em; padding: .12em .45em; text-align: center; font-size: 1.15em; line-height: 1.15; color: #101840; background: linear-gradient(#fff, #cfd8ff); border-radius: .35em; border-bottom: .18em solid #7a8ad0; box-shadow: 0 .08em 0 #04081e; white-space: nowrap; }
+.rmx-kc b.wide { padding-inline: .8em; }
+.rmx-kt strong { display: block; color: #ffd24a; font-size: 1.1em; letter-spacing: .04em; }
+.rmx-kt span { display: block; color: #cfd8ff; font-weight: 500; font-size: .95em; line-height: 1.2; }
+.rmx-tips { margin: .8em 0 0; padding: 0; list-style: none; display: grid; gap: .3em; }
+.rmx-tips li { padding: .3em .7em; border-left: .22em solid #ffd24a; background: rgba(255, 210, 74, .08); color: #e4e9ff; font-weight: 500; font-size: 1em; }
+.rmx-tips b { color: #ffd24a; }
+
+/* lessons */
+.rmx-split { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: .9em; align-items: start; }
+.rmx-scene { display: block; width: 100%; height: auto; border: .12em solid #243062; border-radius: .6em; background: #0a1244; touch-action: none; }
+.rmx-scene.drag { cursor: grab; }
+.rmx-legend { display: flex; flex-wrap: wrap; gap: .3em 1em; margin: .45em 0 0; font-size: .95em; color: #cfd8ff; font-weight: 500; }
+.rmx-legend i { display: inline-block; width: .8em; height: .8em; border-radius: .2em; margin-right: .35em; vertical-align: -.05em; }
+.rmx-ctl { display: grid; grid-template-columns: repeat(auto-fit, minmax(11em, 1fr)); gap: .45em .9em; margin-top: .6em; align-items: end; }
+.rmx-ctl label { display: grid; gap: .1em; font-size: .95em; color: #b8c4ff; font-weight: 500; }
+.rmx-ctl label b { color: #fff; font-weight: 700; }
+.rmx-ctl input[type=range] { width: 100%; accent-color: #ffd24a; }
+.rmx-ctl .chk { display: flex; align-items: center; gap: .45em; cursor: pointer; }
+.rmx-ctl .chk input { width: 1.1em; height: 1.1em; accent-color: #ffd24a; }
+.rmx-btn { font: inherit; font-size: 1em; padding: .25em .9em; color: #fff; cursor: pointer; border: .12em solid #4a6cff; border-radius: .5em; background: linear-gradient(#1a2c80, #0b1446); letter-spacing: .04em; }
+.rmx-btn:hover { filter: brightness(1.2); }
+.rmx-btn.on { color: #1a0f00; background: linear-gradient(#ffd24a, #ff9a10); border-color: #8a3a00; }
+.rmx-btn.go { font-size: 1.3em; padding: .2em 1.4em; color: #1a0f00; background: linear-gradient(#ffd24a, #ff9a10); border-color: #8a3a00; }
+.rmx-pills { display: flex; flex-wrap: wrap; gap: .4em; margin-bottom: .7em; }
+.rmx-pills .rmx-btn { font-size: 1.05em; }
+.rmx-say { margin: 0 0 .6em; font-size: 1.02em; font-weight: 500; color: #d6defc; line-height: 1.3; }
+.rmx-say b { color: #ffd24a; }
+.rmx-say i { font-style: normal; color: #7ad8ff; font-weight: 700; }
+
+/* the four conditions */
+.rmx-conds { display: grid; gap: .35em; }
+.rmx-axis { margin: .25em 0 -.1em; font-size: .85em; letter-spacing: .14em; color: #8fa0e0; }
+.rmx-c { display: grid; grid-template-columns: 1.4em minmax(0, 1fr) auto; gap: .1em .6em; align-items: center; padding: .3em .55em; border: .12em solid #34479a; border-radius: .5em; background: rgba(10, 18, 68, .8); }
+.rmx-c .no { grid-row: span 2; width: 1.4em; height: 1.4em; border-radius: 50%; display: grid; place-items: center; font-size: .9em; color: #101840; background: #b8c4ff; }
+.rmx-c .f { font: 700 1em "Consolas", "Courier New", monospace; letter-spacing: 0; color: #fff; white-space: nowrap; }
+.rmx-c .n { font: 700 1em "Consolas", "Courier New", monospace; letter-spacing: 0; color: #ffe08a; white-space: nowrap; }
+.rmx-c .say { grid-column: 2 / 4; font-size: .82em; font-weight: 500; color: #9fb0e8; line-height: 1.1; }
+.rmx-c .pill { grid-row: 1; grid-column: 3; justify-self: end; font-size: .8em; padding: .05em .55em; border-radius: 99px; border: .1em solid; letter-spacing: .08em; }
+.rmx-c.ok { border-color: #1f9d6b; background: rgba(20, 120, 80, .22); } .rmx-c.ok .pill { color: #3ddc97; border-color: #3ddc97; }
+.rmx-c.no2 { border-color: #b8404a; background: rgba(150, 30, 40, .22); } .rmx-c.no2 .pill { color: #ff7a80; border-color: #ff7a80; }
+.rmx-c .nf { grid-column: 2; display: flex; justify-content: space-between; gap: .6em; }
+.rmx-verdict { margin-top: .5em; display: flex; flex-wrap: wrap; justify-content: space-between; gap: .1em .8em; align-items: baseline; padding: .35em .7em; border-radius: .6em; border: .15em solid; font-size: 1.05em; }
+.rmx-verdict strong { font-size: 1.5em; letter-spacing: .06em; }
+.rmx-verdict span { font-weight: 500; font-size: .9em; flex: 1 1 10em; text-align: right; }
+.rmx-verdict.hit { color: #3ddc97; border-color: #3ddc97; background: rgba(20, 120, 80, .2); } .rmx-verdict.miss { color: #ff7a80; border-color: #ff7a80; background: rgba(150, 30, 40, .2); }
+.rmx-code { margin: .5em 0 0; padding: .45em .7em; font: 600 .95em/1.35 "Consolas", "Courier New", monospace; letter-spacing: 0; color: #cfe3ff; background: #050a2c; border: .1em solid #243062; border-radius: .5em; white-space: pre-wrap; word-break: break-word; }
+.rmx-code em { font-style: normal; color: #3ddc97; } .rmx-code u { text-decoration: none; color: #ff7a80; } .rmx-code s { text-decoration: none; color: #ffe08a; }
+.rmx-boxnums { margin: .5em 0 0; display: grid; gap: .2em; font: 600 .88em/1.2 "Consolas", "Courier New", monospace; letter-spacing: 0; color: #b8c4ff; }
+.rmx-boxnums b { color: #fff; }
+.rmx-boxnums .a { color: #8fb0ff; } .rmx-boxnums .b { color: #ffb45c; }
+.rmx-3col { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .7em; margin-top: .7em; }
+.rmx-3col > div { padding: .5em .7em; border: .1em solid #243062; border-radius: .6em; background: rgba(14, 24, 80, .7); }
+.rmx-3col h4 { margin: 0 0 .25em; color: #ffd24a; font-size: 1.1em; letter-spacing: .05em; }
+.rmx-3col p { margin: 0; font-weight: 500; font-size: .95em; color: #d6defc; line-height: 1.25; }
+
+/* the pre-game mechanics card */
+.rmx-mech .rmx-card { width: min(66em, 100%); }
+.rmx-mech-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .6em .9em; }
+.rmx-m { padding: .45em .7em; border: .1em solid #243062; border-radius: .6em; background: rgba(14, 24, 80, .7); min-width: 0; }
+.rmx-m h4 { margin: 0 0 .15em; color: #ffd24a; font-size: 1.15em; letter-spacing: .05em; }
+.rmx-m p { margin: 0; font-weight: 500; font-size: .98em; color: #d6defc; line-height: 1.25; }
+.rmx-m b { color: #fff; }
+.rmx-m.wide { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: .8em; align-items: center; }
+.rmx-mech-foot { display: flex; flex-wrap: wrap; gap: .6em 1em; align-items: center; justify-content: space-between; }
+.rmx-mech-foot label { display: flex; align-items: center; gap: .4em; font-weight: 500; font-size: .95em; color: #b8c4ff; cursor: pointer; }
+.rmx-mech-foot input { width: 1.1em; height: 1.1em; accent-color: #ffd24a; }
+.rmx-mech-foot .btns2 { display: flex; gap: .6em; align-items: center; }
+
+/* game-over calculation */
+.rmx-calc { text-align: left; color: #fff; font: 700 1em/1.2 "Teko", "Arial Narrow", Impact, sans-serif; letter-spacing: .02em; }
+.rmx-calc * { box-sizing: border-box; }
+.rmx-calc h3 { margin: 0; font-size: 1.5em; color: #ffd24a; letter-spacing: .05em; line-height: 1; }
+.rmx-calc .sub { margin: .15em 0 .35em; font-size: .95em; font-weight: 500; color: #cfd8ff; }
+.rmx-calc .sub b { color: #fff; }
+.rmx-calc .sub .a { color: #8fb0ff; } .rmx-calc .sub .b { color: #ffb45c; }
+.rmx-calc canvas { display: block; width: 100%; height: auto; border: .1em solid #243062; border-radius: .5em; background: #0a1244; margin-bottom: .4em; }
+.rmx-calc .rmx-c { padding: .2em .5em; }
+.rmx-calc .rmx-conds { gap: .25em; }
+.rmx-calc .rmx-verdict { margin-top: .35em; padding: .2em .6em; }
+.rmx-calc .extra { margin: .35em 0 0; font-size: .85em; font-weight: 500; color: #9fb0e8; line-height: 1.2; }
+.rmx-calc .extra b { color: #ffe08a; }
+
+@media (max-width: 800px) {
+    .rmx-split { grid-template-columns: minmax(0, 1fr); }
+    .rmx-keys, .rmx-mech-grid, .rmx-3col { grid-template-columns: minmax(0, 1fr); }
+    .rmx-m.wide { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-height: 520px) {
+    #rmx, .rmx-mech { padding: .5em; }
+    .rmx-head h2 { font-size: 1.6em; }
+}
+
+.rmx-ctl .rmx-pills { grid-column: 1 / -1; margin: 0; }
+.rmx-c { padding: .2em .5em; }
+.rmx-conds { gap: .25em; }
+.rmx-calc .say { display: none; }
+.rmx-calc .rmx-axis { margin: .1em 0 -.2em; }
+.rmx-calc h3 { font-size: 1.35em; }
+.rmx-calc .rmx-c { grid-template-columns: 1.4em auto 1fr auto; align-items: center; gap: .1em .5em; padding: .1em .5em; }
+.rmx-calc .rmx-c .no { grid-row: 1; }
+.rmx-calc .rmx-c .f { grid-column: 2; grid-row: 1; }
+.rmx-calc .rmx-c .nf { grid-column: 3; grid-row: 1; justify-content: flex-start; }
+.rmx-calc .rmx-c .pill { grid-column: 4; grid-row: 1; }
+.rmx-calc .rmx-verdict { padding: .1em .6em; } .rmx-calc .rmx-verdict strong { font-size: 1.3em; }
+.rmx-calc .rmx-boxnums { margin: .3em 0 0; font-size: .9em; }
+
+/* AABB vision tag (key B in game) */
+#rmx-vtag{position:fixed;top:12px;left:50%;transform:translate(-50%,-30px);z-index:60;opacity:0;pointer-events:none;transition:.25s;background:rgba(10,14,34,.92);border:2px solid #4de8ff;border-radius:10px;padding:.35em 1em;color:#fff;text-align:center;font-family:Teko,Impact,sans-serif;letter-spacing:.04em}
+#rmx-vtag.show{opacity:1;transform:translate(-50%,0)}
+#rmx-vtag b{display:block;font-size:22px;color:#4de8ff}
+#rmx-vtag span{font-size:15px;opacity:.85}
+
+/* colour legend in the game mechanics card */
+.rmx-tint .tl { display: flex; align-items: center; gap: .6em; margin: .22em 0; }
+.rmx-tint .tl p { margin: 0; }
+.rmx-tint .sw { flex: none; width: 3.4em; height: 1.5em; border-radius: .25em; display: inline-flex; align-items: center; justify-content: center; font: 700 .72em Teko, Impact, sans-serif; color: #ff6a78; -webkit-text-stroke: .08em #0a0e22; paint-order: stroke fill; }
+.rmx-tint .sw.c { background: rgba(77,232,255,.55); }
+.rmx-tint .sw.r { background: rgba(255,77,94,.55); }
+.rmx-tint .sw.y { background: #ffe85a; animation: rmxflash .5s infinite alternate; }
+.rmx-tint .sw.t { background: none; width: 5.6em; font-size: 1.2em; }
+.rmx-tint .sw:not(.t) { margin-left: .35em; margin-right: .35em; }
+@keyframes rmxflash { from { opacity: .45 } to { opacity: 1 } }
+
+.rmx-tint .sw.d { background: none; border: .16em dashed #ffc84a; }
+.rmx-tint .sw.l { background: rgba(10,14,34,.9); border: .1em solid #ffc84a; color: #ffc84a; font: 700 .72em/1.05 Consolas, monospace; -webkit-text-stroke: 0; text-align: center; padding: .1em; height: auto; min-height: 1.7em; }
+.rmx-mech .rmx-card { max-height: 100%; overflow-y: auto; }
+
+/* game mechanics carousel */
+.rmx-mech .rmx-card { overflow-y: auto; }
+.rmx-pages { min-height: 17em; }
+.rmx-ptitle { font-size: .9em; color: #b8c4ff; letter-spacing: .08em; font-weight: 700; align-self: center; margin-left: auto; padding-right: 2.5em; }
+.rmx-mech .rmx-head { display: flex; align-items: center; }
+.rmx-nav { display: flex; align-items: center; justify-content: space-between; gap: .8em; margin: .7em 0 .5em; }
+.rmx-nav .rmx-btn:disabled { opacity: .35; cursor: default; }
+.rmx-dots { display: flex; gap: .55em; }
+.rmx-dots .dot { width: .9em; height: .9em; border-radius: 50%; border: .12em solid #6f86ff; background: transparent; padding: 0; cursor: pointer; }
+.rmx-dots .dot.on { background: #ffd24a; border-color: #ffd24a; }
+.rmx-page[hidden] { display: none; }
+.rmx-mech .rmx-tint .tl { margin: .45em 0; }
+
+/* mechanics carousel */
+.rmx-mech-pages { display: flex; flex-direction: column; gap: .5em; }
+.rmx-mnav { display: flex; align-items: center; gap: .7em; }
+.rmx-mnav .rmx-btn { flex: none; min-width: 6.5em; }
+.rmx-mnav .rmx-btn:disabled { opacity: .35; cursor: default; }
+.rmx-ptitle { flex: 1; color: #b8c4ff; font-weight: 700; letter-spacing: .08em; font-size: 1.05em; }
+.rmx-dots { display: flex; gap: .45em; }
+.rmx-dots .dot { width: .85em; height: .85em; padding: 0; border-radius: 50%; border: .12em solid #6f7fe0; background: transparent; cursor: pointer; }
+.rmx-dots .dot.on { background: #ffd24a; border-color: #ffd24a; }
+.rmx-stage { min-height: 19em; display: flex; flex-direction: column; justify-content: center; }
+.rmx-stage > div[hidden] { display: none; }
+.rmx-m.big { padding: .8em 1em; }
+.rmx-m.big h4 { font-size: 1.45em; margin-bottom: .3em; }
+.rmx-m.big p { font-size: 1.2em; line-height: 1.35; }
+.rmx-mech .rmx-m.wide .rmx-scene { max-height: none; width: 100%; justify-self: stretch; }
+.rmx-mech .rmx-tint { font-size: 1.12em; }

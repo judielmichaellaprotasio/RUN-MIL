@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>RUN MIL! - Endless Run</title>
+    <link rel="stylesheet" href="game.css">
+    <link rel="stylesheet" href="howto.css">
+    <link rel="stylesheet" href="touch.css">
+</head>
+<body>
+    <div id="wrap">
+        <div id="stage">
+            <div id="bg"><img id="bgd" alt=""><img id="bgn" alt=""></div>
+            <canvas id="game" width="960" height="540"></canvas>
+            <button id="pausebtn" aria-label="Pause">&#10074;&#10074;</button>
+            <div id="touch" hidden>
+                <button id="t-duck" aria-label="Duck">&#9660;<small>DUCK</small></button>
+                <button id="t-punch" aria-label="Punch">P<small>PUNCH</small></button>
+                <button id="t-kick" aria-label="Kick">K<small>KICK</small></button>
+            </div>
+        </div>
+
+        <div id="pause" class="panel" hidden>
+            <h1>PAUSED</h1>
+            <p id="engine"></p>
+            <div class="btns"><button id="resume" class="gold">RESUME</button><button id="restart">RESTART</button><button id="howto-pause">HOW TO PLAY</button><button id="quit">MAIN MENU</button></div>
+        </div>
+
+        <div id="over" class="panel" hidden>
+            <div class="ov-left">
+                <h1 id="over-title">YOU GOT HIT!</h1>
+                <p id="sum"></p>
+                <div id="saveme">
+                    <button id="save-btn" class="gold">SAVE ME &nbsp;<img src="visuals/images/icon-gem.png" alt="" onerror="this.style.display='none'"><b>25</b></button>
+                    <small id="gem-line"></small>
+                </div>
+                <div class="btns"><button id="retry">RUN AGAIN</button><button id="home">MAIN MENU</button></div>
+            </div>
+            <div class="ov-right" id="aabb-calc"></div>
+        </div>
+
+        <div id="victory" hidden>
+            <div id="v-beams"></div>
+            <canvas id="v-fx"></canvas>
+            <div id="v-floor"></div>
+            <div id="v-stage"><div id="v-disc"></div><img id="v-dancer" src="visuals/victory/victory_dance.gif" alt=""><div id="v-emoji" hidden>&#128378;</div></div>
+            <div id="v-title"><span>&#127942;</span> NEW HIGH SCORE! <span>&#127942;</span></div>
+            <div id="v-score">0</div>
+            <div id="v-sub"></div>
+            <div id="v-skip"></div>
+        </div>
+
+        <div id="hint"></div>
+    </div>
+    <script src="assets.js"></script>
+    <script src="visuals/audio/sounds.js"></script>
+    <script src="audio.js"></script>
+    <script src="skinart.js"></script>
+    <script src="character.js"></script>
+    <script src="anim.js"></script>
+    <script src="collect.js"></script>
+    <script src="java/aabb.js" onerror="window.__aabbMissing=1"></script>
+    <script src="aabb-boot.js"></script>
+    <script src="howto.js"></script>
+    <script src="touch.js"></script>
+    <script src="game.js"></script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+/* on-screen touch pad (touch.js) */
+html.has-touch, html.has-touch body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; overscroll-behavior: none; }
+#tc { position: fixed; inset: 0; z-index: 40; pointer-events: none; }
+#tc.off { display: none; }
+#tc .tb { pointer-events: auto; touch-action: none; position: absolute; width: 15vmin; height: 15vmin; border-radius: 50%; padding: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; font: 700 6.2vmin/0.9 Teko, "Arial Narrow", Impact, sans-serif; color: #fff; background: rgba(12, 20, 70, .55); border: .5vmin solid rgba(120, 150, 255, .8); box-shadow: 0 .6vmin 2vmin rgba(0, 0, 0, .4); }
+#tc .tb small { font-size: 2.3vmin; letter-spacing: .05em; margin-top: .3vmin; }
+#tc .tb.on { background: rgba(255, 210, 74, .85); color: #111; transform: scale(.94); }
+/* weapons: a row at the bottom centre */
+#tc .tc-w { position: absolute; bottom: 2vmin; left: 50%; transform: translateX(-50%); display: flex; gap: 1.6vmin; pointer-events: none; }
+#tc .tc-w .tb { position: static; width: 10vmin; height: 10vmin; font-size: 4.8vmin; }
+#tc .tc-w .tb.v { font-size: 3.4vmin; }
+#tc .tc-w .tb small { font-size: 1.7vmin; }
+/* movement: one row (left / right, then up / down lane) under the weapon slots */
+#tc .tc-dp { position: absolute; left: 2vmin; bottom: 2vmin; display: flex; gap: 1.4vmin; pointer-events: none; }
+#tc .tc-dp .tb { position: static; width: 12vmin; height: 12vmin; border-radius: 2.6vmin; font-size: 5.4vmin; }
+#tc .tc-dp .r { margin-right: 3vmin; }
+html.has-touch #keys { display: none; }
+/* actions */
+#tc .tc-ac { position: absolute; right: 3vmin; bottom: 3vmin; width: 52vmin; height: 40vmin; pointer-events: none; }
+#tc .tc-ac .jump { right: 0; bottom: 0; width: 18vmin; height: 18vmin; font-size: 5vmin; background: rgba(40, 120, 255, .6); }
+#tc .tc-ac .pu { right: 20vmin; bottom: 1vmin; background: rgba(255, 90, 60, .55); }
+#tc .tc-ac .ki { right: 18vmin; bottom: 17vmin; background: rgba(255, 150, 40, .55); }
+#tc .tc-ac .sp { right: 1vmin; bottom: 20vmin; width: 13vmin; height: 13vmin; font-size: 5vmin; background: rgba(170, 70, 255, .55); }
+#tc .tc-ac .du { right: 35vmin; bottom: 1vmin; width: 12vmin; height: 12vmin; font-size: 4.4vmin; }

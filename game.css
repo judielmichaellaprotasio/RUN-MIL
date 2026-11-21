@@ -1,0 +1,83 @@
+@font-face { font-family: "Teko"; src: url("visuals/fonts/teko-latin-700-normal.woff2") format("woff2"); font-weight: 700; }
+* { box-sizing: border-box; margin: 0; }
+html, body { height: 100%; height: 100dvh; background: #000; overflow: hidden; font-family: "Teko", Impact, sans-serif; user-select: none; -webkit-user-select: none; }
+#wrap { position: fixed; inset: 0; display: grid; place-items: center; }
+#stage { position: relative; width: 100vw; height: 100vh; background: #10143a; overflow: hidden; }
+#bg { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+#bg img { position: absolute; display: block; max-width: none; opacity: 0; pointer-events: none; }
+#game { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+
+/* pause button (top right of the play field) */
+#pausebtn { position: absolute; right: 1.2%; top: 2%; height: 9%; aspect-ratio: 1; min-width: 36px; padding: 0; font-size: 3.4vmin; letter-spacing: -.1em; }
+/* touch buttons (only shown on touch screens) */
+#touch { position: absolute; right: 2%; bottom: 4%; display: flex; gap: 2vmin; align-items: flex-end; }
+#touch[hidden] { display: none; }
+#touch button { width: 15vmin; height: 15vmin; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 6vmin; line-height: .9; opacity: .88; touch-action: none; }
+#touch button small { font-size: 2.4vmin; letter-spacing: .04em; }
+#t-punch { background: radial-gradient(#ffb24a, #e0481a); border-color: #7a1a00; }
+#t-kick  { background: radial-gradient(#7affc0, #109a62); border-color: #004a30; }
+
+.panel { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); text-align: center; color: #fff; padding: 3vmin 6vmin; background: rgba(6, 10, 36, .94); border: .5vmin solid #4a6cff; border-radius: 2vmin; min-width: 52vmin; z-index: 5; }
+.panel[hidden] { display: none; }
+.panel h1 { font-size: 9vmin; color: #ffd24a; text-shadow: 0 .6vmin 0 #5a2a00; line-height: 1; margin-bottom: 1vmin; }
+.panel p { font-size: 4.2vmin; margin: 1vmin 0 2vmin; line-height: 1.2; }
+.btns { display: flex; gap: 2vmin; justify-content: center; flex-wrap: wrap; }
+#saveme { margin: 0 0 2.2vmin; display: flex; flex-direction: column; align-items: center; gap: .8vmin; }
+#saveme[hidden] { display: none; }
+#save-btn { display: inline-flex; align-items: center; gap: .6vmin; font-size: 5.6vmin; padding: .8vmin 4vmin; }
+#save-btn img { height: 4.6vmin; width: auto; }
+#save-btn:disabled { filter: grayscale(.8) brightness(.7); cursor: default; }
+#gem-line { font-size: 3vmin; color: #b8c4ff; }
+button { font: 700 4.5vmin Teko, sans-serif; color: #fff; padding: .6vmin 3vmin; border-radius: 1.2vmin; cursor: pointer; background: linear-gradient(#1a2c80, #0b1446); border: .4vmin solid #4a6cff; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+button.gold, #retry { background: linear-gradient(#ffd24a, #ff9a10); border-color: #8a3a00; text-shadow: 0 .3vmin 0 #7a3a00; }
+button:not(:disabled):hover { filter: brightness(1.15); } button:not(:disabled):active { transform: scale(.96); }
+#hint { position: absolute; bottom: 1.5vmin; left: 50%; transform: translateX(-50%); color: #fff; font-size: 3vmin; opacity: .9; pointer-events: none; transition: opacity 1s; white-space: nowrap; text-shadow: 0 0 .8vmin #000, 0 0 .8vmin #000; }
+#hint.off { opacity: 0; }
+
+/* ---------- victory dance ---------- */
+#victory { position: fixed; inset: 0; z-index: 30; overflow: hidden; cursor: default; color: #fff; text-align: center;
+    background: radial-gradient(ellipse at 50% 115%, #8a2ab8 0, #321a88 36%, #0e0c46 72%, #05051e 100%); }
+#victory[hidden] { display: none; }
+#v-beams { position: absolute; left: 50%; top: 54%; width: 260vmax; height: 260vmax; margin: -130vmax 0 0 -130vmax; pointer-events: none;
+    background: repeating-conic-gradient(from 0deg, rgba(255, 226, 120, .20) 0 6deg, rgba(255, 226, 120, 0) 6deg 18deg);
+    -webkit-mask-image: radial-gradient(circle, #000 0, rgba(0,0,0,.5) 12%, transparent 30%); mask-image: radial-gradient(circle, #000 0, rgba(0,0,0,.5) 12%, transparent 30%);
+    animation: v-spin 26s linear infinite; }
+@keyframes v-spin { to { transform: rotate(360deg); } }
+#v-fx { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+#v-floor { position: absolute; left: -20%; right: -20%; bottom: -4%; height: 36%; pointer-events: none; transform: perspective(520px) rotateX(62deg); transform-origin: 50% 100%;
+    background: repeating-linear-gradient(90deg, rgba(255,255,255,.35) 0 2px, transparent 2px 70px), repeating-linear-gradient(0deg, rgba(255,255,255,.35) 0 2px, transparent 2px 70px),
+    linear-gradient(90deg, #ff4a9a, #ffd24a, #4aff9a, #4ac8ff, #b04aff, #ff4a9a);
+    background-size: auto, auto, 300% 100%; opacity: .55; animation: v-floor 5s linear infinite; }
+@keyframes v-floor { to { background-position: 0 0, 0 0, 300% 0; } }
+#v-stage { position: absolute; left: calc(50% - min(78vh, 90vw) / 2); top: calc(52% - min(78vh, 90vw) / 2); width: min(78vh, 90vw); aspect-ratio: 1; }   /* no transform here: the dancer must blend with the whole stage behind it */
+#v-disc { position: absolute; inset: 7%; border-radius: 50%; background: radial-gradient(circle, #fffdf0 0, #ffe98a 42%, #ff9ad8 74%, rgba(255, 120, 200, 0) 100%);
+    box-shadow: 0 0 8vmin rgba(255, 210, 120, .75); animation: v-pulse 1.1s ease-in-out infinite alternate; }
+@keyframes v-pulse { to { transform: scale(1.06); filter: brightness(1.12); } }
+#v-dancer { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; mix-blend-mode: multiply; }
+#v-emoji { position: absolute; inset: 0; display: grid; place-items: center; font-size: 30vmin; animation: v-bob .5s ease-in-out infinite alternate; }
+#v-emoji[hidden] { display: none; }
+@keyframes v-bob { to { transform: translateY(-4vmin) rotate(8deg); } }
+#v-title { position: absolute; left: 0; right: 0; top: 2.5vmin; font: 700 12vmin/1 Teko, Impact, sans-serif; letter-spacing: .03em; animation: v-pop 1s ease-in-out infinite alternate;
+    background: linear-gradient(90deg, #ffd24a, #ff6ad8, #6ad8ff, #7aff9a, #ffd24a); background-size: 300% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-stroke: .5vmin #2a0a5a; paint-order: stroke fill; filter: drop-shadow(0 .8vmin 0 rgba(0,0,0,.45)); }
+#v-title span { -webkit-text-stroke: 0; color: initial; background: none; display: inline-block; animation: v-bob .6s ease-in-out infinite alternate; }
+@keyframes v-pop { to { transform: scale(1.05); background-position: 100% 0; } }
+#v-score { position: absolute; left: 0; right: 0; bottom: 12vmin; font: 700 10vmin/1 Teko, Impact, sans-serif; color: #ffd24a; text-shadow: 0 .6vmin 0 #5a2a00, 0 0 3vmin rgba(255, 210, 74, .8); }
+#v-sub { position: absolute; left: 0; right: 0; bottom: 8vmin; font: 700 4vmin/1 Teko, Impact, sans-serif; color: #e8dcff; text-shadow: 0 .3vmin 0 #1a0a40; }
+#v-skip { position: absolute; left: 0; right: 0; bottom: 2.4vmin; font: 700 4.4vmin/1 Teko, Impact, sans-serif; color: #fff; text-shadow: 0 .4vmin 0 #1a0a40; }
+#v-skip.ready { animation: v-blink 1s ease-in-out infinite; }
+@keyframes v-blink { 50% { opacity: .35; } }
+#victory.ready { cursor: pointer; }
+.found-row { font-size: 4.4vmin; letter-spacing: .3vmin; }
+
+#engine { font-size: 2.2vmin; padding: 0 2vmin; color: #9aa8e0; margin-bottom: 2vmin; }
+
+/* ---- game over: summary on the left, the AABB calculation on the right ---- */
+#over { display: flex; align-items: center; gap: 3vmin; padding: 2.2vmin 3vmin; max-width: 98%; }
+#over .ov-left { text-align: center; flex: none; width: 44vmin; }
+#over .ov-left h1 { font-size: 7vmin; }
+#over .ov-left p { font-size: 3.6vmin; }
+#over .ov-right { flex: none; width: 74vmin; }
+#over .ov-left #save-btn { font-size: 4.6vmin; }
+#aabb-calc { font-size: 2.3vmin; }
+#over .ov-right:empty { display: none; }
+#over[hidden] { display: none; }
