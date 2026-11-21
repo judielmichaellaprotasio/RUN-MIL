@@ -1,0 +1,7 @@
+{
+  "appId": "com.runmil.game",
+  "appName": "RUN MIL!",
+  "webDir": "www",
+  "backgroundColor": "#0b1446",
+  "android": { "allowMixedContent": false }
+}

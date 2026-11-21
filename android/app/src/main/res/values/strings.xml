@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">RUN MIL!</string>
+    <string name="title_activity_main">RUN MIL!</string>
+    <string name="package_name">com.runmil.game</string>
+    <string name="custom_url_scheme">com.runmil.game</string>
+</resources>
