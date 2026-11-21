@@ -572,3 +572,14 @@ small.rar.r-rare { background: #2f5fd0; } small.rar.r-epic { background: #8a3fe0
 /* ---------- HOW TO PLAY button (main menu) ---------- */
 .howto { left: 71.8%; top: 1.488%; width: 8.014%; height: 13.603%; }
 .howto .q { display: grid; place-items: center; width: calc(var(--u) * 4.2); height: calc(var(--u) * 4.2); border-radius: 50%; font-size: calc(var(--u) * 3.2); line-height: 1; color: #1a0f00; background: linear-gradient(#ffd24a, #ff9a10); border: calc(var(--u) * .3) solid #8a3a00; text-shadow: none; }
+
+/* ---------- light mode (Android app / phones): no endlessly animated glows, lighter shadows ---------- */
+html.perf .play-button { animation: none !important; }
+html.perf .logo, html.perf .hero { filter: none !important; }
+html.perf #enbar.full, html.perf #warn.on { animation: none !important; }
+html.perf button:hover, html.perf .menu-btn:hover, html.perf .icon-btn:hover { filter: none; }
+
+/* loading + title videos: never crop the picture on very wide phones (20:9 and wider); bars are black */
+@media (min-aspect-ratio: 18/10) {
+    #loading-screen video, #title-screen video { object-fit: contain; }
+}

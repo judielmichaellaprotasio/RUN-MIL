@@ -116,6 +116,7 @@
             L.nw = g.naturalWidth; L.nh = g.naturalHeight;
             if (L.d) L.g = L.d.g; else L.g = Math.round(layers.day.g * L.nh / layers.day.nh);
             L.gimg = g; buildStrip(L); layout();
+            if (window.RUNMIL_PERF && !L.still) { const u = RUNMIL_still(g, L.fallback ? NIGHT_FILTER : null); if (u) { L.still = true; L.el.style.filter = "none"; L.el.src = u; } }     // light mode: still background
         };
         g.onerror = function () {
             if (name === "night" && !L.fallback) {         // no night picture for this place: darken the day one
@@ -819,7 +820,7 @@
         const d = o.d, r = rectOf(o);
         ctx.save(); ctx.translate(o.x, GROUND - d.lift - (r.bob || 0));
         if (o.dead) { ctx.globalAlpha = Math.max(0, 1 - (o.dead - 1) / 3); ctx.scale(1, Math.max(.15, 1 - (o.dead - 1) * .3)); }
-        if (o.flash > 0) ctx.filter = "brightness(2.2)";
+        if (o.flash > 0) { if (window.RUNMIL_PERF) ctx.globalAlpha = 0.55; else ctx.filter = "brightness(2.2)"; }
         const im = ART[o.k];
         let sa = null;
         if (d.anim) {

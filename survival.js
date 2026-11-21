@@ -219,7 +219,11 @@
         refreshAmmo(); $("lcoin").textContent = 0; $("lgem").textContent = 0; $("combo").hidden = true; $("target").hidden = true; $("warn").classList.remove("on"); $("shock").hidden = true; clearTimeout(bossWarn.t); $("bw").hidden = true; setEn(); setTimeout(drawPortrait, 60); setTimeout(drawPortrait, 600);
         $("select").hidden = true; ["pause", "over", "clear"].forEach(function (id) { $(id).hidden = true; }); $("hud").hidden = false; $("boss").hidden = true;
         AUD("music", "survival");                                 // silent unless you add visuals/audio/music/survival.* (see sounds.js)
-        bgimg.style.display = "block"; bgimg.src = DIR + lv.file;
+        bgimg.style.display = "block";
+        if (window.RUNMIL_PERF) bgimg.onload = function () {            // light mode: an animated 2048 px background is too heavy for phones, use a still of it
+            if (bgimg.dataset.still === "1") return; const u = RUNMIL_still(bgimg); if (u) { bgimg.dataset.still = "1"; bgimg.src = u; }
+        };
+        bgimg.dataset.still = ""; bgimg.src = DIR + lv.file;
         $("lvname").innerHTML = "LEVEL " + lv.n + "<small>" + lv.name + " &bull; " + lv.diff + "</small>";
         $("wnodes").innerHTML = [1, 2, 3, 4, 5].map(function (i) { return '<b class="' + (i === WAVES ? "boss" : "") + '" style="left:' + (i / WAVES * 100) + '%">' + (i === WAVES ? "&#128128;" : i) + "</b>"; }).join("");
         setProgress(1, 0); setHp();
@@ -738,7 +742,7 @@
         if (p.dead) { const k = Math.min(1, (p.dead++ / 18)); ctx.rotate((p.face < 0 ? 1 : -1) * 1.45 * k); }              // falls over backwards
         else if (p.inv > 0 && Math.floor(p.inv * 16) % 2) ctx.globalAlpha = 0.45;                          // blinks while it can't be hurt
         if (S.f.shield > 0) { const g = ctx.createRadialGradient(0, -90, 20, 0, -90, 105); g.addColorStop(0, "rgba(120,200,255,.05)"); g.addColorStop(1, "rgba(120,200,255,.45)"); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, -90, 105, 0, 7); ctx.fill(); ctx.strokeStyle = "rgba(180,230,255,.8)"; ctx.lineWidth = 3; ctx.stroke(); }
-        if (S.f.rage > 0) ctx.filter = "saturate(1.8) brightness(1.15) hue-rotate(-12deg)";
+        if (S.f.rage > 0 && !window.RUNMIL_PERF) ctx.filter = "saturate(1.8) brightness(1.15) hue-rotate(-12deg)";
         if (p.face > 0) ctx.scale(-1, 1);                                                                  // the GIFs face left
         ctx.drawImage(a.img, (f % a.cols) * a.fw, Math.floor(f / a.cols) * a.fh, a.fw, a.fh, -a.ax * sc, -a.gy * sc, a.fw * sc, a.fh * sc);
         ctx.restore();
@@ -755,7 +759,8 @@
             if (m.d.boss) { ctx.globalAlpha = 1 - dy; ctx.scale(1, 1 - dy * 0.35); }
             else { const mid = m.d.h * 0.5; ctx.translate(0, -mid); ctx.rotate(m.rot || 0); ctx.translate(0, mid); ctx.globalAlpha = m.dieT < 0.6 ? 1 : Math.max(0, (1.1 - m.dieT) / 0.5); }
         } else if (m.hitT > 0) { const k = m.hitT / 0.28; ctx.rotate((m.hd || 1) * 0.2 * k); ctx.scale(1 + 0.14 * k, 1 - 0.12 * k); }      // recoil: lean back and squash
-        if (m.flash > 0) ctx.filter = "brightness(2.4)"; else if (S.f.freeze > 0) ctx.filter = "saturate(.5) brightness(1.25) hue-rotate(150deg)"; else if (m.slow > 0) ctx.filter = "hue-rotate(60deg) saturate(1.4)";
+        if (window.RUNMIL_PERF) { if (m.flash > 0) ctx.globalAlpha = 0.55; }                                       // light mode: no slow canvas filters, a hit just blinks
+        else if (m.flash > 0) ctx.filter = "brightness(2.4)"; else if (S.f.freeze > 0) ctx.filter = "saturate(.5) brightness(1.25) hue-rotate(150deg)"; else if (m.slow > 0) ctx.filter = "hue-rotate(60deg) saturate(1.4)";
         if (m.face > 0) ctx.scale(-1, 1);
         ctx.drawImage(a.img, (f % a.cols) * a.fw, Math.floor(f / a.cols) * a.fh, a.fw, a.fh, -a.ax * sc, -a.gy * sc, a.fw * sc, a.fh * sc);
         ctx.restore();

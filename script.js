@@ -9,7 +9,8 @@ function fsWanted() {
     try { const s = JSON.parse(localStorage.getItem("runmil_save") || "{}") || {}; return !(s.settings && s.settings.fullscreen === false); }
     catch (e) { return true; }
 }
-function fsSupported() { const el = document.documentElement; return !!(el.requestFullscreen || el.webkitRequestFullscreen); }
+function fsSupported() { if (window.RUNMIL_NATIVE) return false;                    // the Android app is already full screen (no tap-to-start gate)
+    const el = document.documentElement; return !!(el.requestFullscreen || el.webkitRequestFullscreen); }
 function enterFullscreen() {
     const el = document.documentElement;
     if (document.fullscreenElement || document.webkitFullscreenElement) return;
