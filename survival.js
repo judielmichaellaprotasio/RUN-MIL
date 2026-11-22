@@ -51,10 +51,24 @@
 
     // ---------- the player's sheets (the GIFs are drawn facing left; facing right is a mirror) ----------
     const SV = window.RUNMIL_SV || {};
+    // Light mode (phones): the sprite sheets are about twice as big as they are ever drawn (~300 MB of pictures in memory, which is what makes a phone stutter).
+    // Each sheet is shrunk once, right after loading, to its on-screen size; sc / ax / gy are adjusted so nothing moves or changes size.
+    function shrink(a, src) {
+        if (!window.RUNMIL_PERF || !src || !a.cols || !a.fw) return src;
+        const r = Math.min(1, a.sc * 1.1); if (r > 0.95) return src;
+        try {
+            const rows = Math.ceil(a.n / a.cols), fw2 = Math.max(1, Math.round(a.fw * r)), fh2 = Math.max(1, Math.round(a.fh * r));
+            const c = document.createElement("canvas"); c.width = a.cols * fw2; c.height = rows * fh2;
+            const g = c.getContext("2d"); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = "high";
+            for (let i = 0; i < a.n; i++) g.drawImage(src, (i % a.cols) * a.fw, Math.floor(i / a.cols) * a.fh, a.fw, a.fh, (i % a.cols) * fw2, Math.floor(i / a.cols) * fh2, fw2, fh2);
+            const rx = fw2 / a.fw, ry = fh2 / a.fh; a.ax *= rx; a.gy *= ry; a.sc /= (rx + ry) / 2; a.fw = fw2; a.fh = fh2;
+            return c;
+        } catch (e) { return src; }
+    }
     function outfit(im, a) {                                     // the outfit / skin saved in Character Customization, painted onto the sheet (shared code in character.js)
         try { return C && C.paintSheet ? C.paintSheet(im, a) : im; } catch (e) { return im; }
     }
-    Object.keys(SV).forEach(function (k) { const a = SV[k], im = new Image(); im.onload = function () { a.img = outfit(im, a); }; im.src = a.src; a.total = a.dur.reduce((x, y) => x + y, 0); });
+    Object.keys(SV).forEach(function (k) { const a = SV[k], im = new Image(); im.onload = function () { a.img = shrink(a, outfit(im, a)); }; im.src = a.src; a.total = a.dur.reduce((x, y) => x + y, 0); });
     function frameAt(a, ms) { ms = ms % a.total; for (let i = 0; i < a.n; i++) { if (ms < a.dur[i]) return i; ms -= a.dur[i]; } return 0; }
 
     // ---------- monsters ----------
@@ -106,7 +120,7 @@
     Object.keys(SVM).forEach(function (k) {
         ["walk", "atk"].forEach(function (w) {
             const a = SVM[k] && SVM[k][w]; if (!a) return;
-            const im = new Image(); im.onload = function () { a.img = im; }; im.src = a.src;
+            const im = new Image(); im.onload = function () { a.img = shrink(a, im); }; im.src = a.src;
             a.total = a.dur.reduce((x, y) => x + y, 0);
         });
     });
@@ -829,7 +843,9 @@
             x += 52;
         });
     }
+    let RS = 1;                                                  // render scale (light mode lowers it by itself when the phone cannot keep ~40 fps)
     function draw() {
+        ctx.setTransform(RS, 0, 0, RS, 0, 0);
         ctx.clearRect(0, 0, VW, VH);
         ctx.save();
         if (shake > 0) ctx.translate((Math.random() - 0.5) * shake * 22, (Math.random() - 0.5) * shake * 22);
@@ -860,9 +876,14 @@
         drawBuffs(); ctx.save(); ctx.scale(Z, Z); drawShots(); ctx.restore(); drawWeaponHud();
         bgimg.style.transform = "translate(" + (-cam.x * K * Z) + "px," + (-cam.y * K * Z) + "px)";
     }
+    let fpsN = 0, fpsSum = 0;
     function loop(t) {
         if (!running) return;
-        const dt = Math.min(0.05, (t - last) / 1000); last = t;
+        const raw = t - last;
+        if (window.RUNMIL_PERF && !paused && !ended && raw < 250 && RS > 0.56) {            // light mode: if the phone is slow, draw the game at a lower resolution
+            fpsSum += raw; if (++fpsN >= 90) { if (fpsSum / fpsN > 25) { RS = Math.max(0.56, RS * 0.78); cv.width = Math.round(VW * RS); cv.height = Math.round(VH * RS); } fpsN = 0; fpsSum = 0; }
+        }
+        const dt = Math.min(0.05, raw / 1000); last = t;
         if (!paused && !ended) { try { update(dt); } catch (e) { console.error(e); } }
         if (!paused) { try { draw(); } catch (e) { console.error(e); } }
         requestAnimationFrame(loop);
