@@ -323,7 +323,7 @@
     }
 
     // ---------- pause / home ----------
-    function togglePause() { paused = !paused; $("pause").hidden = !paused; $("engine").textContent = paused && AB ? "Hit-check engine: " + String(AB.engine || "js").toUpperCase() + (AB.why ? " (" + AB.why + ")" : "") : ""; if (!paused) { last = performance.now(); keys = {}; } }
+    function togglePause() { paused = !paused; $("pause").hidden = !paused; if (!paused) { last = performance.now(); keys = {}; } }
     $("pausebtn").addEventListener("click", togglePause);
     $("resume").addEventListener("click", togglePause);
     $("tolevels").addEventListener("click", showSelect);

@@ -263,7 +263,7 @@
     }
     function setPause(on) {
         if (st.over || !st.started) return;
-        st.paused = on; $("pause").hidden = !on; $("engine").textContent = "Hit-check engine: " + AB.engine.toUpperCase() + (AB.why ? " (" + AB.why + ")" : "");
+        st.paused = on; $("pause").hidden = !on;
         AUD("pause", on); if (!on) st.cd = 3;                                // 3-2-1 before the run goes on
     }
     addEventListener("keydown", function (e) {
