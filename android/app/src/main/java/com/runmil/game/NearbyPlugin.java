@@ -50,7 +50,7 @@ public class NearbyPlugin extends Plugin {
     private String myName = "";
     private boolean advertising, discovering;
     private final Map<String, String> pendingNames = new HashMap<>();
-    private final java.util.Set<Long> inflight = java.util.Collections.synchronizedSet(new java.util.HashSet<Long>());
+    private final java.util.Map<Long, Long> inflight = java.util.Collections.synchronizedMap(new java.util.HashMap<Long, Long>());
     private PluginCall waitingForPermission;
     private String waitRole;
 
@@ -136,9 +136,11 @@ public class NearbyPlugin extends Plugin {
         String data = call.getString("data");
         if (peer == null || data == null) { call.resolve(); return; }
         boolean lossy = Boolean.TRUE.equals(call.getBoolean("lossy", false));
+        long now = System.currentTimeMillis();
+        synchronized (inflight) { java.util.Iterator<java.util.Map.Entry<Long, Long>> it = inflight.entrySet().iterator(); while (it.hasNext()) if (now - it.next().getValue() > 250) it.remove(); }   // never wait for a reply longer than a quarter second
         if (lossy && inflight.size() >= 2) { call.resolve(); return; }          // the link is still busy: drop this picture of the game, the next one is newer anyway (no growing lag)
         Payload pl = Payload.fromBytes(data.getBytes(StandardCharsets.UTF_8));
-        inflight.add(pl.getId());
+        inflight.put(pl.getId(), now);
         client.sendPayload(peer, pl).addOnFailureListener(e -> inflight.remove(pl.getId()));
         call.resolve();
     }
