@@ -11,11 +11,18 @@ import com.getcapacitor.BridgeActivity;
 public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        registerPlugin(NearbyPlugin.class);                                        // the two-phone link for 1 VS 1 (Bluetooth / Nearby)
         super.onCreate(savedInstanceState);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);      // the screen stays on while you play
         WebSettings s = getBridge().getWebView().getSettings();
         s.setMediaPlaybackRequiresUserGesture(false);                              // music / sound can start without an extra tap
         hideBars();
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        NearbyPlugin.onPermissionResult(requestCode, grantResults);                // the answer to the Bluetooth / nearby permission dialog
     }
 
     @Override
