@@ -13,7 +13,7 @@
         try { return (C.Plugins && C.Plugins.RunMilLan) || (C.registerPlugin ? C.registerPlugin("RunMilLan") : null); } catch (e) { return null; }
     }
     const NATIVE = !!(window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform() && plug()) && !TEST;
-    function haveNative() { try { const C = window.Capacitor; return !!(C && (C.isPluginAvailable ? C.isPluginAvailable("RunMilLan") : (C.Plugins && C.Plugins.RunMilLan))); } catch (e) { return false; } }
+    function haveNative() { try { const C = window.Capacitor; if (C && C.PluginHeaders && C.PluginHeaders.length !== undefined) return C.PluginHeaders.some(function (h) { return h && h.name === "RunMilLan"; }); return !!(C && (C.isPluginAvailable ? C.isPluginAvailable("RunMilLan") : (C.Plugins && C.Plugins.RunMilLan))); } catch (e) { return false; } }
     const NET = { role: "", peer: null, open: false, handles: [] };
 
     // ---------- Android: the host's hotspot (Wi-Fi).  The HOST phone turns its Hotspot on and listens; the other phone joins that Wi-Fi and connects to the host ----------
