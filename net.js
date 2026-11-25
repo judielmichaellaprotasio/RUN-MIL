@@ -34,8 +34,18 @@
             });
         }
         } catch (e) { emit("error", { fatal: 1, message: "Phone link failed to start: " + (e && e.message || e) }); return Promise.resolve(); }
-        NET.step = "calling"; const call = role === "host" ? P.host().then(function (r) { NET.step = "resolved"; emit("hosting", { ips: (r && r.ips) || [] }); }) : P.join({ ip: ip || "" });
-        return call.catch(function (e) { NET.step = "rejected"; emit("error", { message: (e && (e.message || e.errorMessage)) || "Could not start" }); });
+        NET.step = "calling";
+        let call;
+        try { call = role === "host" ? lan("host", {}).then(function (r) { NET.step = "resolved"; emit("hosting", { ips: (r && r.ips) || [] }); }) : lan("join", { ip: ip || "" }).then(function () { NET.step = "joined"; }); }
+        catch (e) { NET.step = "threw: " + (e && e.message || e); emit("error", { fatal: 1, message: "Phone link failed: " + (e && e.message || e) }); return Promise.resolve(); }
+        return call.catch(function (e) { NET.step = "rejected: " + ((e && (e.message || e.errorMessage)) || e); emit("error", { message: (e && (e.message || e.errorMessage)) || "Could not start" }); });
+    }
+    // call a plugin method; if the JS proxy has no such method, go straight to the native bridge
+    function lan(method, args) {
+        const P = plug(), C = window.Capacitor;
+        if (P && typeof P[method] === "function") return Promise.resolve(P[method](args));
+        if (C && typeof C.nativePromise === "function") return C.nativePromise("RunMilLan", method, args || {});
+        return Promise.reject(new Error("no way to call " + method));
     }
 
     // ---------- browser test link (two tabs) ----------
@@ -58,7 +68,7 @@
 
     window.RunMilNet = {
         available: function () { return NATIVE || TEST; },
-        diag: function () { try { const C = window.Capacitor || {}; return "link-v3 | native=" + NATIVE + " | plugins=" + (C.PluginHeaders ? C.PluginHeaders.map(function (h) { return h.name; }).join(",") : "n/a") + " | have=" + haveNative() + " | step=" + (NET.step || "-"); } catch (e) { return "diag failed"; } },
+        diag: function () { try { const C = window.Capacitor || {}; return "link-v4 | native=" + NATIVE + " | plugins=" + (C.PluginHeaders ? C.PluginHeaders.map(function (h) { return h.name; }).join(",") : "n/a") + " | have=" + haveNative() + " | step=" + (NET.step || "-"); } catch (e) { return "diag failed"; } },
         native: NATIVE,
         isOpen: function () { return NET.open; },
         role: function () { return NET.role; },
@@ -66,17 +76,17 @@
         host: function (name) { return NATIVE ? nativeStart("host") : bcStart("host", name); },
         join: function (name, ip) { return NATIVE ? nativeStart("guest", ip) : bcStart("guest", name); },
         connect: function (id, name) {
-            if (NATIVE) return plug().connect({ id: id }).catch(function (e) { emit("error", { message: (e && (e.message || e.errorMessage)) || "Could not connect" }); });
+            if (NATIVE) return lan("connect", { id: id }).catch(function (e) { emit("error", { message: (e && (e.message || e.errorMessage)) || "Could not connect" }); });
             bc.postMessage({ k: "req", to: id, from: myId, name: name || "FRIEND" }); return Promise.resolve();
         },
         send: function (o) {
             if (!NET.open) return;
-            if (NATIVE) { plug().send({ data: JSON.stringify(o) }).catch(function () { /* the link closed */ }); }
+            if (NATIVE) { lan("send", { data: JSON.stringify(o) }).catch(function () { /* the link closed */ }); }
             else bc.postMessage({ k: "d", to: other, from: myId, d: JSON.parse(JSON.stringify(o)) });
         },
         close: function () {
             const was = NET.open; NET.open = false; clearInterval(advTimer);
-            if (NATIVE) { try { plug().stop(); } catch (e) { /* ignore */ } }
+            if (NATIVE) { try { lan("stop", {}).catch(function () { }); } catch (e) { /* ignore */ } }
             else if (bc) { if (was && other) bc.postMessage({ k: "bye", to: other, from: myId }); }
             other = null; NET.role = "";
         },
