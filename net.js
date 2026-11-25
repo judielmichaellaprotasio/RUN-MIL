@@ -6,7 +6,25 @@
 (function () {
     "use strict";
     const H = {};
-    function emit(t, a) { (H[t] || []).slice().forEach(function (f) { try { f(a); } catch (e) { if (window.console) console.error(e); } }); }
+    // ---- link quality: a ping every second + a small on-screen read-out (so a slow link is visible, and the game slows its updates down when it must)
+    const Q = { rtt: 0, rx: 0, rate: 0, last: 0, timer: 0, el: null };
+    function qShow() {
+        if (!Q.el) { Q.el = document.createElement("div"); Q.el.style.cssText = "position:fixed;left:6px;bottom:4px;z-index:2147483000;font:700 11px/1 monospace;padding:2px 5px;border-radius:4px;background:rgba(0,0,0,.55);pointer-events:none"; if (document.body) document.body.appendChild(Q.el); }
+        const bad = !Q.rtt || Q.rtt > 250 || Q.rate < 5; Q.el.style.color = bad ? "#ff7b7b" : "#7dffa0";
+        Q.el.textContent = "LINK " + (Q.rtt ? Q.rtt + "ms" : "...") + "  " + Q.rate + "/s";
+    }
+    function qStart() {
+        qStop(); Q.rtt = 0; Q.rx = 0; Q.rate = 0; qShow();
+        Q.timer = setInterval(function () { Q.rate = Q.rx; Q.rx = 0; qShow(); if (window.RunMilNet) RunMilNet.send({ t: "~p", ts: Date.now() }); }, 1000);
+    }
+    function qStop() { clearInterval(Q.timer); Q.timer = 0; if (Q.el && Q.el.parentNode) Q.el.parentNode.removeChild(Q.el); Q.el = null; }
+    function emit(t, a) {
+        if (t === "open") qStart(); else if (t === "close") qStop();
+        else if (t === "msg" && a && typeof a.t === "string" && a.t.charAt(0) === "~") {
+            if (a.t === "~p") RunMilNet.send({ t: "~q", ts: a.ts }); else if (a.t === "~q") { const r = Date.now() - a.ts; Q.rtt = Q.rtt ? Math.round(Q.rtt * 0.6 + r * 0.4) : r; }
+            return;
+        } else if (t === "msg") Q.rx++;
+        (H[t] || []).slice().forEach(function (f) { try { f(a); } catch (e) { if (window.console) console.error(e); } }); }
     const TEST = /[?&]nettest=1/.test(location.search);
     // the game page runs inside a frame of the menu: the Android bridge only answers the TOP window, so always talk to its Capacitor
     function CAP() { try { if (window.top && window.top !== window && window.top.Capacitor) return window.top.Capacitor; } catch (e) { /* other origin */ } return window.Capacitor; }
@@ -71,7 +89,7 @@
 
     window.RunMilNet = {
         available: function () { return NATIVE || TEST; },
-        interval: function () { return NATIVE ? 1 / 15 : 1 / 30; },       // Bluetooth is slow: fewer, newer pictures of the game
+        interval: function () { if (!NATIVE) return 1 / 30; return Q.rtt > 400 ? 1 / 6 : Q.rtt > 200 ? 1 / 10 : 1 / 15; },       // Bluetooth is slow: fewer, newer pictures of the game
         diag: function () { try { const C = CAP() || {}; return "bt-v2 | top=" + (window.top !== window) + "  | native=" + NATIVE + " | plugins=" + (C.PluginHeaders ? C.PluginHeaders.map(function (h) { return h.name; }).join(",") : "n/a") + " | have=" + haveNative() + " | step=" + (NET.step || "-"); } catch (e) { return "diag failed"; } },
         native: NATIVE,
         isOpen: function () { return NET.open; },
