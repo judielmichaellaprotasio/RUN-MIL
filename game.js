@@ -446,7 +446,7 @@
     function explode(x, y) {
         SFX("boom");
         st.fx.push({ k: "boom", x: x, y: y, t: 0.35, T: 0.35 }); st.shake = 0.18; burst(x, y, "#ffb040", 22);
-        st.obs.forEach(function (o) { const r = rectOf(o); if (!o.dead && Math.hypot(o.x - x, (r.y0 + r.y1) / 2 - y) < 150) kill(o); });
+        st.obs.forEach(function (o) { const r = rectOf(o); if (!o.dead && aabb({ x: x - 150, y: y - 150, w: 300, h: 300 }, { x: r.x0, y: r.y0, w: r.x1 - r.x0, h: r.y1 - r.y0 }, "BLAST", "atk")) kill(o); });      // the blast is a box too (AABB)
     }
     function updateShots(dt) {
         WEAPONS.forEach(function (w) { if (st.cdt[w.id] > 0) st.cdt[w.id] -= dt; });

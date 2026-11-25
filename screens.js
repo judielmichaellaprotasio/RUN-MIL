@@ -410,7 +410,30 @@
             '</div></div>';
     }
 
-    const R = { collection: rColl, mode: rMode, customize: rCustom, shop: rShop, achievements: rAch, missions: rMis, profile: rProf, settings: rSet, map: rMap };
+    // =====================  HEROINES (web version)  =====================
+    // a heroine stays a mystery (silhouette + "?") until her  revealed  flag in duo.js is true
+    function silhouette(col) {
+        const f = col || "#3b4166", e = col ? "#fff" : "#7d85ad";
+        return '<svg viewBox="0 0 100 170" role="img" aria-label="Mystery heroine"><g fill="' + f + '" stroke="' + e + '" stroke-width="2.4" stroke-linejoin="round">' +
+            '<circle cx="50" cy="26" r="17"/><path d="M33 22c2-14 12-19 20-18 10 1 17 9 14 22-4-7-9-10-16-10-8 0-14 2-18 6z"/>' +
+            '<path d="M30 52c6-6 34-6 40 0l6 52H24z"/><path d="M26 56l-9 46 9 2 9-40zM74 56l9 46-9 2-9-40z"/><path d="M32 104h36l-3 56H54l-4-34-4 34H35z"/></g>' +
+            '<text x="50" y="96" text-anchor="middle" font-family="Teko, Impact, sans-serif" font-weight="700" font-size="58" fill="#e6e9ff" stroke="#10163c" stroke-width="3" paint-order="stroke">?</text></svg>';
+    }
+    function rHeroes() {
+        const D = window.RUNMIL_DUO || { heroines: [] };
+        let cleared = {}; try { cleared = (JSON.parse(localStorage.getItem("runmil_save") || "{}").survival || {}).cleared || {}; } catch (e) { cleared = {}; }
+        const cards = D.heroines.map(function (h) {
+            const open = !!cleared[h.level], rev = !!h.revealed && open;      // a heroine stays a mystery (silhouette, ??? and a secret) until the player clears her level
+            const art = rev && h.img ? '<img src="' + esc(h.img) + '" alt="' + esc(h.name) + '">' : silhouette(rev ? h.color : null);
+            const lock = open ? '<span class="x-ok">UNLOCKED &#10003;</span>' : '<span class="hr-lock">&#128274; Clear Level ' + h.level + " in Monster Survival to unlock her</span>";
+            return '<div class="x-pnl hr-card' + (rev ? "" : " mystery") + '">' + art + '<h3 class="x-h">' + (rev ? esc(h.name) : "???") + "</h3>" +
+                '<p class="x-sub">' + (rev ? esc(h.desc) : "Who is she? Her story is still a secret.") + "</p>" + lock + "</div>";
+        }).join("");
+        return head("HEROINES") + '<div class="x-body"><div class="x-pnl x-sum"><div class="x-h">&#10067; ' + D.heroines.length + ' Heroines</div><p class="x-sub">Clear a level in Monster Survival to unlock one heroine for each of the 4 levels. Pick one as Player 2 in the 2 PLAYERS mode.</p></div><div class="hr-grid">' + cards + "</div></div>";
+    }
+    (function () { const b = document.getElementById("heroes-btn"); if (b && window.RUNMIL_DUO && RUNMIL_DUO.enabled) b.hidden = false; })();
+
+    const R = { heroines: rHeroes, collection: rColl, mode: rMode, customize: rCustom, shop: rShop, achievements: rAch, missions: rMis, profile: rProf, settings: rSet, map: rMap };
 
     // =====================  CLICKS  =====================
     let wipeArm = 0;
@@ -526,7 +549,7 @@
         if (e.key === "Enter" && editName && e.target.id === "name-in") commitName();
     });
 
-    ["collection", "mode", "customize", "shop", "achievements", "missions", "profile", "settings", "map"].forEach(function (n) { M.on(n, function () { open(n); }); });
-    M.on("play", function () { open("mode"); });
+    ["heroines", "collection", "mode", "customize", "shop", "achievements", "missions", "profile", "settings", "map"].forEach(function (n) { M.on(n, function () { open(n); }); });
+    M.on("play", function () { if (window.RunMilPlayPick) window.RunMilPlayPick(); });      // PLAY always asks which game (Endless Run / Monster Survival / 1 VS 1)
     badge();
 })();

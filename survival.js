@@ -53,8 +53,8 @@
     const SV = window.RUNMIL_SV || {};
     // Light mode (phones): the sprite sheets are about twice as big as they are ever drawn (~300 MB of pictures in memory, which is what makes a phone stutter).
     // Each sheet is shrunk once, right after loading, to its on-screen size; sc / ax / gy are adjusted so nothing moves or changes size.
-    function shrink(a, src) {
-        if (!window.RUNMIL_PERF || !src || !a.cols || !a.fw) return src;
+    function shrink(a, src, force) {
+        if ((!window.RUNMIL_PERF && !force) || !src || !a.cols || !a.fw) return src;
         const r = Math.min(1, a.sc * 1.1); if (r > 0.95) return src;
         try {
             const rows = Math.ceil(a.n / a.cols), fw2 = Math.max(1, Math.round(a.fw * r)), fh2 = Math.max(1, Math.round(a.fh * r));
@@ -68,7 +68,7 @@
     function outfit(im, a) {                                     // the outfit / skin saved in Character Customization, painted onto the sheet (shared code in character.js)
         try { return C && C.paintSheet ? C.paintSheet(im, a) : im; } catch (e) { return im; }
     }
-    Object.keys(SV).forEach(function (k) { const a = SV[k], im = new Image(); im.onload = function () { a.img = shrink(a, outfit(im, a)); }; im.src = a.src; a.total = a.dur.reduce((x, y) => x + y, 0); });
+    Object.keys(SV).forEach(function (k) { const a = SV[k], im = new Image(); a.orig = { fw: a.fw, fh: a.fh, ax: a.ax, gy: a.gy, sc: a.sc }; im.onload = function () { a.img = shrink(a, outfit(im, a)); }; im.src = a.src; a.total = a.dur.reduce((x, y) => x + y, 0); });
     function frameAt(a, ms) { ms = ms % a.total; for (let i = 0; i < a.n; i++) { if (ms < a.dur[i]) return i; ms -= a.dur[i]; } return 0; }
 
     // ---------- monsters ----------
@@ -181,12 +181,48 @@
 
     // ---------- state ----------
     let lv = null, running = false, paused = false, ended = false, last = 0, keys = {}, cam = { x: 0, y: 0 };
-    let me = null, mons = [], fx = [], wv = null, S = null, shake = 0, hitStop = 0, slowT = 0, pks = [], dis = [], ring = null;
+    let me = null, PL = [], MODE = 1, mons = [], fx = [], wv = null, S = null, shake = 0, hitStop = 0, slowT = 0, pks = [], dis = [], ring = null, spk = [], flm = [], wnd = [];
     const SPEED = 250, GRAV = 2300, JUMP_V = 800, AIR = 2 * JUMP_V / GRAV, HP_MAX = 100, HALF_W = 22, STAND = 175, DUCK = 100;
     const ATK = { punch: { ms: 290, w: [120, 280], reach: 100, zlo: 55, zhi: 150, dmg: 1 }, kick: { ms: 370, w: [250, 420], reach: 125, zlo: 10, zhi: 115, dmg: 2 } };   // same quick timing as Endless
-    function newPlayer() {
+    function newPlayer(i, sv) {
         const y0 = lv.h * lv.band[0], y1 = lv.h * lv.band[1];
-        return { x: lv.w * 0.28, y: (y0 + y1) / 2, z: 0, vz: 0, airT: 0, face: 1, act: null, duck: false, duckT: 0, runT: 0, moving: false, hp: HP_MAX, inv: 0, kx: 0, dead: 0 };
+        return { pid: i || 0, sv: sv || SV, keys: {}, wcd: {}, x: lv.w * 0.28 + (i ? 80 : 0), y: (y0 + y1) / 2 + (i ? 12 : 0), z: 0, vz: 0, airT: 0, face: 1, act: null, duck: false, duckT: 0, runT: 0, moving: false, hp: HP_MAX, en: 0, deadT: 0, fcd: 0, inv: 0, kx: 0, dead: 0 };
+    }
+    // run something as a given player: `me`, `keys` and the weapon cool-downs are swapped for the time of the call (all the single-player code keeps working as it is)
+    function as(p, fn) { const sm = me, sk = keys, sw = wcd; me = p; keys = p.keys; wcd = p.wcd; try { return fn(); } finally { me = sm; keys = sk; wcd = sw; } }
+    function resetKeys() { PL.forEach(function (p) { p.keys = {}; }); if (PL[0]) keys = PL[0].keys; else keys = {}; }
+    const twoP = function () { return PL.length > 1; };
+    const nearest = function (m) { let b = null, bd = 1e9; PL.forEach(function (p) { if (p.dead) return; const d = Math.abs(p.x - m.x) + Math.abs(p.y - m.y) * 1.5; if (d < bd) { bd = d; b = p; } }); return b || PL[0]; };
+
+    // ---------- 2 players: the heroines (web version only) ----------
+    const DUO = window.RUNMIL_DUO && window.RUNMIL_DUO.enabled ? window.RUNMIL_DUO : null;
+    function duoSave() { return rawSave().duo || {}; }
+    function setDuo(patch) { const sv = rawSave(); sv.duo = Object.assign({}, sv.duo, patch); try { localStorage.setItem(KEY, JSON.stringify(sv)); } catch (e) { /* storage unavailable */ } }
+    function heroineOpen(h) { return !!(h && getProg().cleared[h.level]); }                    // she is unlocked by clearing her level
+    function openHeroines() { return DUO ? DUO.heroines.filter(heroineOpen) : []; }
+    function curHeroine() { if (!DUO) return null; const o = openHeroines(), h = DUO.byId(duoSave().p2); return heroineOpen(h) ? h : (o[0] || null); }
+    function heroSheets(h, only) {
+        const out = h.sv || (h.sv = {});
+        (only || Object.keys(SV)).forEach(function (k) {
+            if (out[k]) return;
+            const real = h.sheets && h.sheets[k], a = Object.assign({}, real || SV[k], real ? {} : SV[k].orig || {}); a.total = a.dur.reduce(function (x, y) { return x + y; }, 0); out[k] = a;
+            const im = new Image();
+            im.onload = function () {
+                let src = im;
+                if (!real) {                                           // PLACEHOLDER: the main character's sheet painted in her colour, until her own GIFs are in
+                    const c = document.createElement("canvas"); c.width = im.naturalWidth; c.height = im.naturalHeight;
+                    const g = c.getContext("2d"); g.drawImage(im, 0, 0); g.globalCompositeOperation = "source-atop"; g.fillStyle = h.tint; g.fillRect(0, 0, c.width, c.height); src = c;
+                }
+                a.img = shrink(a, src, !!real);                         // the heroines' own sheets are about twice as big as they are drawn: shrink them once so the game stays smooth
+            };
+            im.src = a.src;
+        });
+        return out;
+    }
+    function makePlayers() {
+        const h = MODE === 2 ? curHeroine() : null, l = [newPlayer(0, SV)];
+        if (h) { const p2 = newPlayer(1, heroSheets(h)); p2.h = h; l.push(p2); }
+        return l;
     }
 
     // ---------- level select ----------
@@ -204,6 +240,54 @@
                 '<div class="tx"><div class="nm">LEVEL ' + L.n + '</div><h3>' + L.name + '</h3><span class="df">' + L.diff + '</span><div class="st">' + st + '</div></div></button>';
         }).join("");
         AUD("stop");                                              // no background music in Monster Survival (the sound effects stay)
+        duoBar();
+    }
+    // ---------- level select: 1 player / 2 players + the Player 2 character picker ----------
+    function duoBar() {
+        const bar = $("duo"); if (!DUO) { bar.hidden = true; $("duo-panel").hidden = true; return; }
+        const open = openHeroines(), h = curHeroine(), mode = duoSave().mode === 2 && open.length ? 2 : 1, two = $("duo-2");
+        bar.hidden = false; two.classList.toggle("locked", !open.length); two.innerHTML = open.length ? "2 PLAYERS" : "&#128274; 2 PLAYERS";
+        $("duo-1").classList.toggle("on", mode === 1); two.classList.toggle("on", mode === 2);
+        $("duo-chars").textContent = "PLAYER 2 CHARACTERS (" + open.length + "/" + DUO.heroines.length + ")";
+        $("duo-note").textContent = !open.length ? "Clear Level 1 to unlock your first Player 2 character." : mode === 2 ? "Player 2: " + h.name : "";
+    }
+    let duoAnim = 0;
+    function duoPanel() {
+        const cur = curHeroine();
+        $("duo-cards").innerHTML = DUO.heroines.map(function (h) {
+            const open = heroineOpen(h), sel = open && cur === h;
+            return '<button class="hc' + (open ? "" : " locked") + (sel ? " sel" : "") + '" data-id="' + h.id + '" style="--c:' + h.color + '"><canvas width="200" height="276"></canvas><div class="hn">' + (open ? h.name : "???") + '</div><div class="hs">' +
+                (open ? (sel ? "&#10003; PLAYER 2" : "TAP TO SELECT") : "&#128274; Clear Level " + h.level + " to unlock") + "</div></button>";
+        }).join("");
+        $("duo-panel").hidden = false;
+        cancelAnimationFrame(duoAnim);
+        const cards = [].slice.call($("duo-cards").children);
+        (function tick(t) {
+            if ($("duo-panel").hidden) return;
+            cards.forEach(function (b) {
+                const h = DUO.byId(b.dataset.id), a = heroSheets(h, ["run"]).run, c = b.firstChild, g = c.getContext("2d"); g.clearRect(0, 0, c.width, c.height);
+                if (!a || !a.img) return;
+                const f = frameAt(a, t), k = (c.height - 16) / (a.fh * 0.95);
+                g.save(); g.translate(c.width / 2, c.height - 8); g.scale(-k, k); g.drawImage(a.img, (f % a.cols) * a.fw, Math.floor(f / a.cols) * a.fh, a.fw, a.fh, -a.ax, -a.gy, a.fw, a.fh);
+                if (b.classList.contains("locked")) { g.globalCompositeOperation = "source-atop"; g.fillStyle = "#0b1030"; g.fillRect(-c.width, -c.height * 2, c.width * 2, c.height * 3); }          // locked: only her silhouette
+                g.restore();
+            });
+            duoAnim = requestAnimationFrame(tick);
+        })(0);
+    }
+    if (DUO) {
+        $("duo-1").addEventListener("click", function () { setDuo({ mode: 1 }); duoBar(); });
+        $("duo-2").addEventListener("click", function () {
+            if (!openHeroines().length) { SFX("deny"); $("duo-2").animate([{ transform: "translateX(-6px)" }, { transform: "translateX(6px)" }, { transform: "translateX(0)" }], { duration: 220 }); return; }
+            setDuo({ mode: 2, p2: curHeroine().id }); duoBar();
+        });
+        $("duo-chars").addEventListener("click", duoPanel);
+        $("duo-close").addEventListener("click", function () { $("duo-panel").hidden = true; cancelAnimationFrame(duoAnim); duoBar(); });
+        $("duo-cards").addEventListener("click", function (e) {
+            const b = e.target.closest(".hc"); if (!b) return; const h = DUO.byId(b.dataset.id);
+            if (!heroineOpen(h)) { SFX("deny"); b.animate([{ transform: "translateX(-6px)" }, { transform: "translateX(6px)" }, { transform: "translateX(0)" }], { duration: 220 }); return; }
+            setDuo({ p2: h.id }); SFX("item"); duoPanel();
+        });
     }
     $("cards").addEventListener("click", function (e) {
         const b = e.target.closest(".lc"); if (!b) return;
@@ -212,6 +296,7 @@
         startLevel(n);
     });
     $("sel-back").addEventListener("click", goHome);
+    if (DUO) { $("vs-btn").hidden = false; $("vs-btn").addEventListener("click", function () { location.href = "versus.html?from=sv"; }); }       // 1 VS 1 (web version only)
 
     // ---------- the level ----------
     function layoutBg() {
@@ -226,11 +311,14 @@
         [].forEach.call($("wnodes").children, function (n, i) { n.classList.toggle("on", f >= (i + 1) / WAVES - 1e-6); });
     }
     function toast(t, ms) { const el = $("toast"); el.textContent = t; el.classList.add("on"); clearTimeout(toast.t); toast.t = setTimeout(function () { el.classList.remove("on"); }, ms || 1800); }
-    function setHp() { const f = Math.max(0, me.hp) / HP_MAX; $("hpfill").style.width = f * 100 + "%"; $("hptxt").textContent = Math.max(0, Math.ceil(me.hp)); $("hp").classList.toggle("low", f < 0.3); }
+    function setHp(p) {
+        p = p || me; const f = Math.max(0, p.hp) / HP_MAX, two = p.pid === 1;
+        $(two ? "hpfill2" : "hpfill").style.width = f * 100 + "%"; $(two ? "hptxt2" : "hptxt").textContent = p.dead ? "DEAD" : Math.max(0, Math.ceil(p.hp)); $(two ? "hp2" : "hp").classList.toggle("low", f < 0.3 && !p.dead); $(two ? "hp2" : "hp").classList.toggle("dead", !!p.dead);
+    }
     function startLevel(n) {
-        lv = LEVELS[n - 1]; me = newPlayer(); keys = {}; paused = false; ended = false; mons = []; fx = []; shake = 0; hitStop = 0; slowT = 0; pks = []; dis = []; ring = null; shots = []; wfx = []; wcd = {};
-        S = { kills: 0, t: 0, hurt: 0, coins: 0, gems: 0, combo: 0, comboT: 0, best: 0, en: 0, tgt: null, tgtT: 0, f: { shield: 0, rage: 0, lucky: 0, freeze: 0, magnet: 0, wind: 0 } };
-        refreshAmmo(); $("lcoin").textContent = 0; $("lgem").textContent = 0; $("combo").hidden = true; $("target").hidden = true; $("warn").classList.remove("on"); $("shock").hidden = true; clearTimeout(bossWarn.t); $("bw").hidden = true; setEn(); setTimeout(drawPortrait, 60); setTimeout(drawPortrait, 600);
+        lv = LEVELS[n - 1]; MODE = DUO && duoSave().mode === 2 && curHeroine() ? 2 : 1; PL = makePlayers(); me = PL[0]; keys = me.keys; paused = false; ended = false; mons = []; fx = []; shake = 0; hitStop = 0; slowT = 0; pks = []; dis = []; ring = null; spk = []; flm = []; wnd = []; shots = []; wfx = []; wcd = me.wcd;
+        S = { kills: 0, t: 0, hurt: 0, coins: 0, gems: 0, combo: 0, comboT: 0, best: 0, tgt: null, tgtT: 0, f: { shield: 0, rage: 0, lucky: 0, freeze: 0, magnet: 0, wind: 0 } };
+        refreshAmmo(); $("hud").classList.toggle("duo", twoP()); $("hp2").hidden = !twoP(); if (window.RMX) RMX.vis.two = twoP(); $("keys").innerHTML = keyHint(); $("lcoin").textContent = 0; $("lgem").textContent = 0; $("combo").hidden = true; $("target").hidden = true; $("warn").classList.remove("on"); $("shock").hidden = true; clearTimeout(bossWarn.t); $("bw").hidden = true; PL.forEach(function (q) { setEn(q); }); setTimeout(drawPortrait, 60); setTimeout(drawPortrait, 600);
         $("select").hidden = true; ["pause", "over", "clear"].forEach(function (id) { $(id).hidden = true; }); $("hud").hidden = false; $("boss").hidden = true;
         AUD("music", "survival");                                 // silent unless you add visuals/audio/music/survival.* (see sounds.js)
         bgimg.style.display = "block";
@@ -240,10 +328,11 @@
         bgimg.dataset.still = ""; bgimg.src = DIR + lv.file;
         $("lvname").innerHTML = "LEVEL " + lv.n + "<small>" + lv.name + " &bull; " + lv.diff + "</small>";
         $("wnodes").innerHTML = [1, 2, 3, 4, 5].map(function (i) { return '<b class="' + (i === WAVES ? "boss" : "") + '" style="left:' + (i / WAVES * 100) + '%">' + (i === WAVES ? "&#128128;" : i) + "</b>"; }).join("");
-        setProgress(1, 0); setHp();
+        setProgress(1, 0); PL.forEach(function (p) { setHp(p); }); setTimeout(drawPortrait2, 80); setTimeout(drawPortrait2, 700);
         $("keys").style.opacity = 1; clearTimeout(startLevel.kt); startLevel.kt = setTimeout(function () { $("keys").style.opacity = 0.35; }, 6000);
         Z = lv.zoom || 1; WW = VW / Z; WH = VH / Z; layoutBg();
-        cam.x = Math.max(0, Math.min(lv.w - WW, me.x - WW / 2)); cam.y = Math.max(0, Math.min(lv.h - WH, me.y - WH * 0.7));
+        const cx0 = PL.reduce(function (a, p) { return a + p.x; }, 0) / PL.length, cy0 = PL.reduce(function (a, p) { return a + p.y; }, 0) / PL.length;
+        cam.x = Math.max(0, Math.min(lv.w - WW, cx0 - WW / 2)); cam.y = Math.max(0, Math.min(lv.h - WH, cy0 - WH * 0.7));
         resize();
         wv = lv.waves ? { n: 0, st: "intro", t: 1.6, q: [], total: 1, killed: 0 } : null;                   // levels without monsters yet = free roam
         if (lv.waves) toast("LEVEL " + lv.n, 1500); else toast("Monsters for this level are coming soon!", 2600);
@@ -293,37 +382,53 @@
         if (bossDone) mons.forEach(function (m) { if (m.st !== "die" && !m.d.boss) kill(m, true); });
         if (bossDone || (wv.n < WAVES && !wv.q.length && !alive().length)) {
             if (wv.n >= WAVES) { levelClear(); return; }
-            if (me.hp > 0) { me.hp = Math.min(HP_MAX, me.hp + 25); setHp(); floatText("+25 HP", me.x, me.y - 190, "#7dff8a"); }                     // a breather between waves
+            PL.forEach(function (p) {                                          // a breather between waves (a fallen partner stands up again)
+                if (p.dead && twoP()) { p.dead = 0; p.deadT = 0; p.hp = 40; p.inv = 2; p.act = null; setHp(p); floatText("BACK UP!", p.x, p.y - 190, "#7dff8a"); SFX("item"); }
+                else if (p.hp > 0) { p.hp = Math.min(HP_MAX, p.hp + 25); setHp(p); floatText("+25 HP", p.x, p.y - 190, "#7dff8a"); }
+            });
             wv.st = "pause"; wv.t = 2.4; setProgress(wv.n, 1); toast("WAVE " + wv.n + " CLEARED!", 1900); SFX("victory");
         }
     }
 
     // ---------- input ----------
-    const GAMEKEYS = ["KeyA", "KeyD", "KeyW", "KeyS", "KeyC", "Space", "KeyP", "KeyK", "KeyL"];
+    // every key -> [player, the key name the movement code already knows]. 1 player: the keys you know. 2 players: the layouts below.
+    const KM1 = { KeyA: [0, "KeyA"], KeyD: [0, "KeyD"], KeyW: [0, "KeyW"], KeyS: [0, "KeyS"], KeyC: [0, "KeyC"], Space: [0, "Space"], KeyP: [0, "KeyP"], KeyK: [0, "KeyK"], KeyL: [0, "KeyL"] };
+    const KM2 = {
+        KeyA: [0, "KeyA"], KeyD: [0, "KeyD"], KeyW: [0, "KeyW"], KeyS: [0, "KeyS"], KeyC: [0, "KeyC"], Space: [0, "Space"], KeyR: [0, "KeyP"], KeyF: [0, "KeyK"], KeyE: [0, "KeyL"],            // player 1
+        ArrowLeft: [1, "KeyA"], ArrowRight: [1, "KeyD"], ArrowUp: [1, "KeyW"], ArrowDown: [1, "KeyS"], KeyO: [1, "KeyC"], KeyM: [1, "Space"], KeyP: [1, "KeyP"], KeyK: [1, "KeyK"], KeyL: [1, "KeyL"]   // player 2
+    };
+    function keyHint() {
+        if (!twoP()) return '<b>A</b><b>D</b> run &bull; <b>W</b><b>S</b> up / down &bull; <b>SPACE</b> jump &bull; <b>C</b> duck &bull; <b>P</b> punch &bull; <b>K</b> kick &bull; <b>L</b> special &bull; <b>1</b>-<b>4</b> weapons &bull; <b>B</b> aabb';
+        return '<div><i class="p1">P1</i> <b>A</b><b>D</b><b>W</b><b>S</b> move &bull; <b>SPACE</b> jump &bull; <b>C</b> duck &bull; <b>R</b> punch &bull; <b>F</b> kick &bull; <b>E</b> special &bull; <b>1-4</b> weapons</div>' +
+            '<div><i class="p2">P2</i> <b>&#9664;</b><b>&#9654;</b><b>&#9650;</b><b>&#9660;</b> move &bull; <b>M</b> jump &bull; <b>O</b> duck &bull; <b>P</b> punch &bull; <b>K</b> kick &bull; <b>L</b> special &bull; <b>NUM 1-4</b> weapons &bull; <b>B</b> aabb</div>';
+    }
     addEventListener("keydown", function (e) {
         if (window.RMX && running && !ended && RMX.vis.key(e)) return;          // B = AABB vision
         if (e.code === "Escape") { if (running && !ended) { e.preventDefault(); togglePause(); } return; }
         if (!running || paused || ended) return;
-        if (GAMEKEYS.indexOf(e.code) >= 0) e.preventDefault();
+        const m = (twoP() ? KM2 : KM1)[e.code], wk = /^(Digit|Numpad)[1-4]$/.test(e.code);
+        if (m || wk) e.preventDefault();
         if (e.repeat) return;
-        keys[e.code] = true;
-        if (e.code === "Space") jump();
-        else if (e.code === "KeyP") attack("punch");
-        else if (e.code === "KeyK") attack("kick");
-        else if (e.code === "KeyL") special();
-        else if (/^(Digit|Numpad)[1-4]$/.test(e.code)) useWeapon(+e.code.slice(-1) - 1);
+        if (m) {
+            const p = PL[m[0]]; if (!p) return;
+            p.keys[m[1]] = true;
+            as(p, function () { if (m[1] === "Space") jump(); else if (m[1] === "KeyP") attack("punch"); else if (m[1] === "KeyK") attack("kick"); else if (m[1] === "KeyL") special(); });
+        } else if (wk) {                                                           // number row = player 1, number pad = player 2 (alone: both work for you)
+            const p = twoP() && e.code.slice(0, 6) === "Numpad" ? PL[1] : PL[0];
+            as(p, function () { useWeapon(+e.code.slice(-1) - 1); });
+        }
     });
-    addEventListener("keyup", function (e) { keys[e.code] = false; });
-    addEventListener("blur", function () { keys = {}; });
+    addEventListener("keyup", function (e) { const m = (twoP() ? KM2 : KM1)[e.code]; if (m && PL[m[0]]) PL[m[0]].keys[m[1]] = false; });
+    addEventListener("blur", function () { resetKeys(); });
     function jump() { if (me.z <= 0 && !me.act && !keys.KeyC && !me.dead) { me.vz = JUMP_V; me.airT = 0; SFX("jump"); } }
     function attack(k) {
         if (me.act || me.z > 0 || me.duck || me.dead) return;
-        if (!SV[k]) return;
+        if (!me.sv[k]) return;
         me.act = { k: k, t: 0, dur: ATK[k].ms * (S.f.rage > 0 ? 0.72 : 1), hit: [] }; SFX("swing", k);
     }
 
     // ---------- pause / home ----------
-    function togglePause() { paused = !paused; $("pause").hidden = !paused; if (!paused) { last = performance.now(); keys = {}; } }
+    function togglePause() { paused = !paused; $("pause").hidden = !paused; if (!paused) { last = performance.now(); resetKeys(); } }
     $("pausebtn").addEventListener("click", togglePause);
     $("resume").addEventListener("click", togglePause);
     $("tolevels").addEventListener("click", showSelect);
@@ -347,14 +452,26 @@
         g.clearRect(0, 0, 60, 60); g.fillStyle = "#24388c"; g.fillRect(0, 0, 60, 60);
         if (a && a.img) { const q = a.fh * 0.27; g.imageSmoothingEnabled = false; g.drawImage(a.img, a.ax - q / 2 - a.fw * 0.05, 0, q, q, 0, 0, 60, 60); }       // the head of the character (with the saved outfit)
     }
+    function drawPortrait2() {
+        const c = $("portrait2"), p = PL[1]; if (!p || !c.getContext) return;
+        const g = c.getContext("2d"), a = p.sv.run; g.clearRect(0, 0, 120, 120); g.fillStyle = p.h ? p.h.color : "#a03a7a"; g.fillRect(0, 0, 120, 120);
+        if (p.h && p.h.face) {                                      // a heroine with a profile picture shows her face here
+            if (!p.h._faceImg) { p.h._faceImg = new Image(); p.h._faceImg.onload = drawPortrait2; p.h._faceImg.src = p.h.face; }
+            if (p.h._faceImg.complete && p.h._faceImg.naturalWidth) { g.drawImage(p.h._faceImg, 0, 0, 120, 120); return; }
+        }
+        if (a && a.img) { const q = a.fh * 0.27; g.imageSmoothingEnabled = false; g.drawImage(a.img, a.ax - q / 2 - a.fw * 0.05, 0, q, q, 0, 0, 120, 120); }
+    }
     function drawTargetPortrait(m) {
         const c = $("tport"), g = c.getContext("2d"), a = SVM[m.t] && SVM[m.t].walk; g.clearRect(0, 0, 44, 44);
         if (a && a.img) { const k = Math.min(40 / a.fw, 40 / a.fh); g.drawImage(a.img, 0, 0, a.fw, a.fh, 22 - a.fw * k / 2, 22 - a.fh * k / 2, a.fw * k, a.fh * k); }
     }
     const NAMES = { rat: "RAT", bat: "BAT", boss: "THE BOSS", art: "KILLER CLOWN", spider: "SPIDER", pigt: "SCOUT PIG", claw: "CLAW KILLER", eye: "EYE STALKER", blob: "BLOB", gang: "ZOMBIE GANG", eyeboss: "THE EYE KING", saw: "CHAINSAW KILLER", mask: "GHOST MASK", pigf: "BRAWLER PIG", pigk: "FORK PIG", girl: "DOLL GIRL", birdy: "HARPY", cow: "THE COWGIRL", roach: "ROACH", drag: "DRAGON", zomb: "ZOMBIE", fur: "PURPLE BEAST", frog: "FROG", clown: "THE CLOWN" };
     function target(m) { if (m.d.boss) return; if (S.tgt !== m) { S.tgt = m; drawTargetPortrait(m); $("tname").textContent = NAMES[m.t] || m.t; } S.tgtT = 3; $("target").hidden = false; }
-    function setEn() { const f = Math.max(0, Math.min(100, S.en)); $("enfill").style.width = f + "%"; $("enbar").classList.toggle("full", f >= 100); $("entxt").textContent = f >= 100 ? "L!" : ""; }
-    function addEn(n) { S.en = Math.min(100, S.en + n); setEn(); }
+    function setEn(p) {                                           // every player has their own energy bar (P1 top left, P2 under the P2 portrait)
+        p = p || me; const f = Math.max(0, Math.min(100, p.en || 0)), two = p.pid === 1, k = two ? "2" : "", rdy = !p.dead && f >= (p.h && p.h.special === "flames" ? 10 : 100);
+        $("enfill" + k).style.width = f + "%"; $("enbar" + k).classList.toggle("full", rdy); $("entxt" + k).textContent = rdy ? (two ? "L!" : twoP() ? "E!" : "L!") : "";
+    }
+    function addEn(n) { me.en = Math.min(100, (me.en || 0) + n); setEn(me); }
     function addCombo() {
         S.combo++; S.comboT = 2.2; S.best = Math.max(S.best, S.combo);
         const el = $("combo"); if (S.combo >= 2) { el.hidden = false; $("cnum").textContent = S.combo; el.className = (S.combo >= 20 ? "t3" : S.combo >= 10 ? "t2" : "t1"); void el.offsetWidth; el.classList.add("pop"); }
@@ -386,9 +503,68 @@
         clearTimeout(warn.t); warn.t = setTimeout(function () { el.classList.remove("on"); sh.hidden = true; }, ms || 2600);
     }
     function disSfx(k) { const n = "dis_" + k, RA = window.RunMilAudio; return RA && RA.has && RA.has("sfx", n) ? n : "boom"; }       // your disaster sound if you added one
-    function special() {                                          // the blue bar is full: one big burst around the player
-        if (S.en < 100 || me.dead || ended || paused) return;
-        S.en = 0; setEn(); ring = { x: me.x, y: me.y, r: 0, t: 0, hit: [], dmg: 4, big: 1 }; shake = 0.35; me.inv = Math.max(me.inv, 0.8); toast("SPECIAL!", 1000); SFX(disSfx("shockwave"));
+    const FLAME_COST = 10;
+    function flameImg(h) { if (!h.fx._img) { h.fx._img = new Image(); h.fx._img.src = h.fx.src; } return h.fx._img; }
+    function flameBlast() {
+        if (me.fcd > 0) return;
+        if ((me.en || 0) < FLAME_COST) { floatText("NO ENERGY", me.x, me.y - 200, "#9ab0ff"); me.fcd = 0.25; return; }
+        me.en = Math.max(0, me.en - FLAME_COST); setEn(me); me.fcd = 0.12; shake = Math.max(shake, 0.07);
+        flm.push({ x: me.x + me.face * 34, y: me.y, z: 104, face: me.face, t: 0, hit: [], h: me.h }); SFX(disSfx("fireball"));
+    }
+    function updateFlames(dt) {                                  // each blast is a stream of fire from her hand; it is a moving AABB and kills what it touches
+        if (!flm.length) return;
+        flm.forEach(function (f) {
+            f.t += dt; const fx = f.h.fx, k = Math.min(1, 0.3 + f.t / 0.2 * 0.7), w = fx.fw * k * 0.9;
+            mons.forEach(function (m) {
+                if (m.st === "die" || f.hit.indexOf(m.id) >= 0 || Math.abs(m.y - f.y) > 46) return;
+                const b = bodyBox(m), bx = f.face > 0 ? f.x : f.x - w; if (!hit(bx, -(f.z + 52), w, 104, b[0], b[1], b[2], b[3], "FLAME", "atk", f.y)) return;
+                f.hit.push(m.id); if (!m.d.boss) { m.kb = f.face * 300; m.down = 0.8; m.dn = f.face; } hurtMon(m, spDmg(m), "#ff9a3a"); spark(m.x, m.y - 60 - m.z, "#ffb84a", 8);
+            });
+        });
+        flm = flm.filter(function (f) { return f.t < 0.6; });
+    }
+    const WIND_LIFE = 1.5, WIND_SPEED = 430;
+    function updateWind(dt) {                                    // the whirlwind is a moving AABB: everything it touches is killed (a boss only loses life)
+        if (!wnd.length) return;
+        wnd.forEach(function (w) {
+            w.t += dt; w.x += w.face * WIND_SPEED * dt; const k = Math.min(1, 0.4 + w.t / 0.25 * 0.6), bw = 150 * k, bh = 190 * k;
+            mons.forEach(function (m) {
+                if (m.st === "die" || w.hit.indexOf(m.id) >= 0 || Math.abs(m.y - w.y) > 90) return;
+                const b = bodyBox(m); if (!hit(w.x - bw / 2, -bh, bw, bh, b[0], b[1], b[2], b[3], "WIND", "atk", w.y)) return;
+                w.hit.push(m.id); if (!m.d.boss) { m.kb = w.face * 460; m.down = 0.8; m.dn = w.face; } hurtMon(m, spDmg(m), "#bfe8ff"); spark(m.x, m.y - 60 - m.z, "#d8f4ff", 8);
+            });
+        });
+        wnd = wnd.filter(function (w) { return w.t < WIND_LIFE; });
+    }
+    function drawWind() {
+        wnd.forEach(function (w) {
+            const fx = w.h.fx, im = flameImg(w.h); if (!im.complete || !im.naturalWidth) return;
+            const k = Math.min(1, 0.4 + w.t / 0.25 * 0.6) * 0.95, fr = Math.floor(w.t / (fx.ms / 1000)) % fx.n, al = Math.min(1, (WIND_LIFE - w.t) / 0.3);
+            ctx.save(); ctx.globalAlpha = Math.max(0, al); ctx.translate(w.x - cam.x, w.y - cam.y);
+            ctx.fillStyle = "rgba(0,0,0,.3)"; ctx.beginPath(); ctx.ellipse(0, 0, 70 * k, 14 * k, 0, 0, 7); ctx.fill();
+            ctx.drawImage(im, fr * fx.fw, 0, fx.fw, fx.fh, -fx.fw * k / 2, -fx.fh * k - 8, fx.fw * k, fx.fh * k); ctx.restore();
+        });
+    }
+    function drawFlames() {
+        flm.forEach(function (f) {
+            const fx = f.h.fx, im = flameImg(f.h); if (!im.complete || !im.naturalWidth) return;
+            const k = Math.min(1, 0.3 + f.t / 0.2 * 0.7), fr = Math.floor(f.t / (fx.ms / 1000)) % fx.n, al = Math.min(1, (0.6 - f.t) / 0.15);
+            ctx.save(); ctx.globalAlpha = al; ctx.translate(f.x - cam.x, f.y - cam.y - f.z); if (f.face < 0) ctx.scale(-1, 1);
+            ctx.drawImage(im, fr * fx.fw, 0, fx.fw, fx.fh, 0, -fx.fh * k / 2, fx.fw * k, fx.fh * k); ctx.restore();
+        });
+    }
+    function special() {                                          // the blue bar is full: a heroine uses her own special, everybody else (the main character) a big burst around them
+        if (me.dead || ended || paused) return;
+        if (me.h && me.h.special === "flames") { flameBlast(); return; }              // MICHA: a blast of fire per key press, each press uses a little energy
+        if ((me.en || 0) < 100) return;
+        me.en = 0; setEn(me); shake = 0.35; me.inv = Math.max(me.inv, 0.8);
+        if (me.h && me.h.special === "wind") {                    // MARV: a big whirlwind rolls out in front of her and blows every monster it touches away
+            wnd.push({ x: me.x + me.face * 70, y: me.y, face: me.face, t: 0, hit: [], h: me.h }); toast("WIND BLAST!", 1000); SFX(disSfx("tornado")); return;
+        }
+        if (me.h && (me.h.special === "land" || me.h.special === "spikes")) {                  // SHAI: LAND POWER - the earth erupts from the ground in every direction
+            spk.push({ x: me.x, y: me.y, t: 0, hit: [], dmg: 5, n: me.h.special === "land" ? 10 : window.RUNMIL_PERF ? 12 : 16, col: me.h.color, land: me.h.special === "land", h: me.h }); toast(me.h.special === "land" ? "LAND POWER!" : "SPIKES!", 1000); SFX(disSfx("tornado")); return;
+        }
+        ring = { x: me.x, y: me.y, r: 0, t: 0, hit: [], dmg: 4, big: 1, kill: 1 }; toast("SPECIAL!", 1000); SFX(disSfx("shockwave"));      // a SPECIAL kills every monster it touches (a boss only loses life)
     }
 
     // ---------- combat ----------
@@ -462,7 +638,7 @@
         spark(me.x, me.y - 90 - me.z, "#ff4a5a", 8); floatText("-" + m.d.dmg, me.x, me.y - 190, "#ff6a6a"); SFX("impact", "kick"); setHp();
         const f = $("flash"); f.classList.add("on"); setTimeout(function () { f.classList.remove("on"); }, 90);
         if (me.hp <= 0 && S.f.wind) { S.f.wind = 0; me.hp = HP_MAX * 0.5; me.inv = 2.5; setHp(); toast("SECOND WIND!", 1600); spark(me.x, me.y - 90, "#7dff8a", 24); SFX("item"); }
-        else if (me.hp <= 0) { me.hp = 0; me.dead = 1; setHp(); setTimeout(gameOver, 900); SFX("over"); }
+        else if (me.hp <= 0) { me.hp = 0; me.dead = 1; setHp(); if (twoP() && !PL.every(function (q) { return q.dead; })) { toast((me.pid ? "PLAYER 2" : "PLAYER 1") + " IS NOW DEAD", 1600); SFX("over"); } else { toast("YOU ARE NOW DEAD", 1500); setTimeout(function () { if (PL.every(function (q) { return q.dead; })) gameOver(); }, 1600); SFX("over"); } }
     }
     let strikeRec = null;
     function monsterStrike(m) {                                  // the monster's attack box against the player's body box (Java AABB)
@@ -534,7 +710,7 @@
     }
     function drop(m) {
         if (m.d.boss) { addPk("sack", m.x - 60, m.y); addPk("gem", m.x, m.y + 14); addPk("gem", m.x + 40, m.y - 12); addPk("pu", m.x + 90, m.y, rollPU()); addPk("pu", m.x - 110, m.y + 8, rollPU()); return; }
-        if (me.hp < HP_MAX * 0.5 && Math.random() < 0.2) { addPk("pu", m.x, m.y, "health_pack"); return; }               // hurt? a health pack drops more often
+        if (PL.some(function (p) { return !p.dead && p.hp < HP_MAX * 0.5; }) && Math.random() < 0.2) { addPk("pu", m.x, m.y, "health_pack"); return; }               // hurt? a health pack drops more often
         const L = S.f.lucky > 0, r = Math.random(), cut = L ? [0.08, 0.38, 0.46, 0.60] : [0.22, 0.55, 0.60, 0.70];    // none | coin | gem | sack | power-up
         if (r < cut[0]) return;
         if (r < cut[1]) addPk("coin", m.x, m.y); else if (r < cut[2]) addPk("gem", m.x, m.y); else if (r < cut[3]) addPk("sack", m.x, m.y); else addPk("pu", m.x, m.y, rollPU());
@@ -548,11 +724,17 @@
         spark(p.x, p.y - 40, "#fff", 6);
     }
     function updatePicks(dt) {
-        const pb = [me.x - HALF_W - 16, -(me.z + STAND), (HALF_W + 16) * 2, STAND];
-        pks.forEach(function (p) {
-            p.age += dt; p.life -= dt;
-            if (S.f.magnet > 0) { const dx = me.x - p.x, dy = me.y - p.y, d = Math.hypot(dx, dy); if (d < 520 && d > 4) { p.x += dx / d * 560 * dt; p.y += dy / d * 560 * dt; } }
-            if (Math.abs(p.y - me.y) <= 40 && hit(pb[0], pb[1], pb[2], pb[3], p.x - 26, -(p.z0 + 54), 52, 54, "POWER-UP", "pick")) { p.life = -1; p.got = 1; collect(p); }
+        pks.forEach(function (p) { p.age += dt; p.life -= dt; });
+        PL.forEach(function (pl) {
+            if (pl.dead && twoP()) return;
+            as(pl, function () {
+                const pb = [me.x - HALF_W - 16, -(me.z + STAND), (HALF_W + 16) * 2, STAND];
+                pks.forEach(function (p) {
+                    if (p.life <= 0) return;
+                    if (S.f.magnet > 0) { const dx = me.x - p.x, dy = me.y - p.y, d = Math.hypot(dx, dy); if (d < 520 && d > 4) { p.x += dx / d * 560 * dt; p.y += dy / d * 560 * dt; } }
+                    if (Math.abs(p.y - me.y) <= 40 && hit(pb[0], pb[1], pb[2], pb[3], p.x - 26, -(p.z0 + 54), 52, 54, "POWER-UP", "pick")) { p.life = -1; p.got = 1; collect(p); }
+                });
+            });
         });
         pks = pks.filter(function (p) { return p.life > 0; });
     }
@@ -582,7 +764,7 @@
         mons.forEach(function (m) { if (m.st === "die" || Math.abs(m.y - y) > 110) return; const b = bodyBox(m); if (hit(x - 150, -(h + 110), 300, 220, b[0], b[1], b[2], b[3])) { if (!m.d.boss) { m.kb = (m.x < x ? -1 : 1) * 420; } hurtMon(m, 8, "#ffb040"); } });
     }
     function updateShots(dt) {
-        WEAPONS.forEach(function (w) { if (wcd[w.id] > 0) wcd[w.id] -= dt; });
+        PL.forEach(function (p) { WEAPONS.forEach(function (w) { if (p.wcd[w.id] > 0) p.wcd[w.id] -= dt; }); });
         wfx.forEach(function (f) { f.t -= dt; }); wfx = wfx.filter(function (f) { return f.t > 0; });
         shots.forEach(function (sh) {
             sh.x += sh.vx * dt; sh.life -= dt; if (sh.k === "ruler") sh.a += dt * 22;
@@ -626,20 +808,22 @@
             ctx.restore();
         });
     }
-    function drawWeaponHud() {
-        const x = 14, s = 50, gap = 8;
+    function drawWeaponHud(p2) {
+        const s = 50, gap = 8, x = p2 ? VW - 14 - s : 14, W = p2 ? PL[1].wcd : PL[0].wcd;
         WEAPONS.forEach(function (w, i) {
-            const y = 196 + i * (s + gap), a = wam[w.id] | 0, cd = wcd[w.id] > 0 ? wcd[w.id] / w.cd : 0;
+            const y = 196 + i * (s + gap), a = wam[w.id] | 0, cd = W[w.id] > 0 ? W[w.id] / w.cd : 0;
             ctx.save(); ctx.beginPath(); ctx.rect(x, y, s, s); ctx.fillStyle = "rgba(8,12,44,.82)"; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = a > 0 ? "#4a6cff" : "#555"; ctx.stroke(); ctx.clip();
             ctx.save(); ctx.translate(x + s / 2, y + s / 2 - 2); ctx.scale(a > 0 ? 0.65 : 0.55, a > 0 ? 0.65 : 0.55); ctx.globalAlpha = a > 0 ? 1 : 0.35; wArt(w.id); ctx.restore();
             if (cd > 0) { ctx.fillStyle = "rgba(0,0,0,.55)"; ctx.fillRect(x, y, s, s * cd); }
-            ctx.font = "700 15px Teko, Impact, sans-serif"; ctx.textBaseline = "top"; ctx.lineWidth = 4; ctx.strokeStyle = "#0a0a28"; ctx.textAlign = "left"; ctx.fillStyle = "#fff"; ctx.strokeText(String(i + 1), x + 5, y + 2); ctx.fillText(String(i + 1), x + 5, y + 2);
+            ctx.font = "700 15px Teko, Impact, sans-serif"; ctx.textBaseline = "top"; ctx.lineWidth = 4; ctx.strokeStyle = "#0a0a28"; ctx.textAlign = "left"; ctx.fillStyle = "#fff"; ctx.strokeText((p2 ? "N" : "") + String(i + 1), x + 5, y + 2); ctx.fillText((p2 ? "N" : "") + String(i + 1), x + 5, y + 2);
             ctx.font = "700 20px Teko, Impact, sans-serif"; ctx.textAlign = "right"; ctx.textBaseline = "bottom"; ctx.fillStyle = a > 0 ? "#ffd24a" : "#ff6a6a"; ctx.strokeText(String(a), x + s - 4, y + s); ctx.fillText(String(a), x + s - 4, y + s);
             ctx.restore();
         });
     }
 
     // ---------- power-ups ----------
+    // a SPECIAL kills every normal monster outright, but a boss only loses a part of its life (a quarter of its max, at least 8)
+    function spDmg(m) { return m.d.boss ? Math.max(8, Math.ceil(m.max * 0.25)) : Math.max(1, Math.ceil(m.hp)); }
     function hurtMon(m, n, col) {                                // damage from a power-up (the hit itself is checked with the Java AABB below)
         if (m.st === "die") return;
         m.hp -= n; m.flash = 0.12; m.hitT = 0.28; monVoice(m); m.hd = m.x < me.x ? -1 : 1; burst(m.x, m.y - m.d.h * 0.55 - m.z, 36); spark(m.x, m.y - 50 - m.z, col || "#ffd24a", 4); floatText("-" + n, m.x, m.y - m.d.h - m.z - 6, col || "#ffd24a");
@@ -691,22 +875,21 @@
             }
         });
         dis = dis.filter(function (d) { return d.t > 0; });
+        updateSpikes(dt); updateFlames(dt); updateWind(dt);
         if (ring) {
             ring.t += dt; ring.r = Math.min(1, ring.t / 0.55) * (ring.big ? 520 : 380);
             mons.forEach(function (m) {
                 if (m.st === "die" || ring.hit.indexOf(m.id) >= 0 || Math.abs(m.y - ring.y) > 90) return;
                 const b = bodyBox(m); if (!hit(ring.x - ring.r, -220, ring.r * 2, 220, b[0], b[1], b[2], b[3])) return;
-                ring.hit.push(m.id); if (!m.d.boss) { m.kb = (m.x < ring.x ? -1 : 1) * 520; m.down = 0.7; m.dn = m.x < ring.x ? -1 : 1; } hurtMon(m, ring.dmg || 3, "#ffe27a");
+                ring.hit.push(m.id); if (!m.d.boss) { m.kb = (m.x < ring.x ? -1 : 1) * 520; m.down = 0.7; m.dn = m.x < ring.x ? -1 : 1; } hurtMon(m, ring.kill ? spDmg(m) : ring.dmg || 3, "#ffe27a");
             });
             if (ring.t > 0.7) ring = null;
         }
     }
 
     // ---------- update + draw ----------
-    function update(dt) {
-        if (hitStop > 0) { hitStop -= dt; dt *= 0.04; } else if (slowT > 0) { slowT -= dt; dt *= 0.3; }      // impact freeze / boss slow-motion
-        const p = me; S.t += dt;
-        p.inv = Math.max(0, p.inv - dt);
+    function stepPlayer(p, dt) {
+        p.inv = Math.max(0, p.inv - dt); p.fcd = Math.max(0, p.fcd - dt); p.deadT = p.dead ? p.deadT + dt : 0;
         if (p.act) { p.act.t += dt * 1000; if (p.act.t >= p.act.dur) p.act = null; }
         p.duck = !p.dead && !!keys.KeyC && p.z <= 0 && !p.act;
         p.duckT = p.duck ? p.duckT + dt * 1000 : 0;
@@ -719,9 +902,14 @@
         p.x = Math.max(70, Math.min(lv.w - 70, p.x));
         p.y = Math.max(lv.h * lv.band[0], Math.min(lv.h * lv.band[1], p.y));          // the pathway only
         if (p.z > 0 || p.vz > 0) { p.airT += dt; p.vz -= GRAV * dt; p.z += p.vz * dt; if (p.z <= 0) { if (p.airT > 0.22) SFX("land"); p.z = 0; p.vz = 0; } }
+    }
+    function update(dt) {
+        if (hitStop > 0) { hitStop -= dt; dt *= 0.04; } else if (slowT > 0) { slowT -= dt; dt *= 0.3; }      // impact freeze / boss slow-motion
+        S.t += dt;
+        PL.forEach(function (p) { as(p, function () { stepPlayer(p, dt); }); });
         ['shield', 'rage', 'lucky', 'freeze', 'magnet'].forEach(function (k) { S.f[k] = Math.max(0, S.f[k] - dt); });
-        playerHits(dt);
-        mons.forEach(function (m) { updateMon(m, dt); });
+        PL.forEach(function (p) { as(p, function () { playerHits(dt); }); });
+        mons.forEach(function (m) { const keep = me; me = nearest(m); try { updateMon(m, dt); } finally { me = keep; } });          // a monster goes for the player closest to it
         updateShots(dt);
         updatePicks(dt); updateDis(dt);
         mons = mons.filter(function (m) { return !(m.st === "die" && m.dieT > 1.1); });
@@ -731,13 +919,17 @@
         shake = Math.max(0, shake - dt);
         if (S.combo > 0) { S.comboT -= dt; if (S.comboT <= 0) { S.combo = 0; $("combo").hidden = true; } else $("combo").classList.toggle("fade", S.comboT < 0.7); }
         if (S.tgt) { const m = S.tgt; S.tgtT -= dt; $("tfill").style.width = Math.max(0, m.hp / m.max) * 100 + "%"; if (S.tgtT <= 0 || (m.st === "die" && m.dieT > 0.5)) { S.tgt = null; $("target").hidden = true; } }
-        const tx = Math.max(0, Math.min(lv.w - WW, p.x - WW / 2)), ty = Math.max(0, Math.min(lv.h - WH, p.y - WH * 0.7)), k = 1 - Math.pow(0.001, dt);
+        const fol = PL.filter(function (q) { return !q.dead; }), F = fol.length ? fol : PL;
+        const mx = F.reduce(function (a, q) { return a + q.x; }, 0) / F.length, my = F.reduce(function (a, q) { return a + q.y; }, 0) / F.length;
+        const tx = Math.max(0, Math.min(lv.w - WW, mx - WW / 2)), ty = Math.max(0, Math.min(lv.h - WH, my - WH * 0.7)), k = 1 - Math.pow(0.001, dt);
         cam.x += (tx - cam.x) * k; cam.y += (ty - cam.y) * k;
+        if (twoP()) PL.forEach(function (q) { q.x = Math.max(cam.x + 50, Math.min(cam.x + WW - 50, q.x)); });
         if (wv && wv.boss && wv.boss.st !== "die") $("bossfill").style.width = Math.max(wv.boss.hp > 0 ? 2 : 0, wv.boss.hp / wv.boss.max * 100) + "%";
         else if (wv && wv.boss) { $("bossfill").style.width = "0%"; }
         if (wv && wv.boss) { const bt = document.getElementById("bosshp"); if (bt) bt.textContent = Math.max(0, Math.ceil(wv.boss.hp)) + " / " + wv.boss.max; }
     }
     function pick(p) {
+        const SV = p.sv || window.RUNMIL_SV || {};
         if (p.dead) return [SV.run, 0];
         if (p.act && SV[p.act.k]) { const a = SV[p.act.k]; return [a, Math.min(a.n - 1, Math.floor(p.act.t / p.act.dur * a.n))]; }   // the whole move is squeezed into the fast attack time
         if ((p.z > 0 || p.vz > 0) && SV.jump) return [SV.jump, Math.min(SV.jump.n - 1, Math.floor(Math.min(1, p.airT / AIR) * SV.jump.n))];
@@ -746,20 +938,46 @@
         return [SV.run, 0];
     }
     function drawShadow(sx, sy, w, z) { ctx.fillStyle = "rgba(0,0,0," + (0.38 - Math.min(0.22, z / 500)).toFixed(2) + ")"; ctx.beginPath(); ctx.ellipse(sx, sy, w * (1 - Math.min(0.3, z / 500)), w * 0.24, 0, 0, 7); ctx.fill(); }
-    function drawPlayer() {
-        const p = me, sx = p.x - cam.x, sy = p.y - cam.y, ps = lv.ps;
-        drawShadow(sx, sy, 46 * ps, p.z);
+    const GLITCH_T = 1.4;
+    function drawGlitch(p, a, f, sc, sx, sy) {                   // a dead character glitches (torn slices, colour ghosts, flicker) for a moment and then vanishes
+        const k = p.deadT / GLITCH_T, N = 12, sh = a.fh / N, sw = a.fw * sc, col = f % a.cols * a.fw, row = Math.floor(f / a.cols) * a.fh;
+        ctx.save(); ctx.translate(sx, sy - p.z); if (p.face > 0) ctx.scale(-1, 1);
+        for (let pass = 0; pass < 2; pass++) {
+            for (let i = 0; i < N; i++) {
+                if (Math.random() < 0.18 + k * 0.5) continue;                                              // slices drop out more and more
+                const off = (Math.random() - 0.5) * (14 + 70 * k) * (Math.random() < 0.35 ? 2 : 0.4) + (pass ? 8 : 0);
+                ctx.globalAlpha = (pass ? 0.35 : 0.5 + Math.random() * 0.5) * (1 - k * 0.6);
+                if (pass) ctx.globalCompositeOperation = "lighter";
+                ctx.drawImage(a.img, col, row + i * sh, a.fw, sh, -a.ax * sc + off, (-a.gy + i * sh) * sc, sw, sh * sc + 0.6);
+            }
+            ctx.globalCompositeOperation = "source-over";
+        }
+        for (let i = 0; i < 5; i++) {                                                                          // random colour bars
+            ctx.globalAlpha = 0.25 + Math.random() * 0.35; ctx.fillStyle = Math.random() < 0.5 ? "#18f0ff" : "#ff2aa0";
+            ctx.fillRect(-a.ax * sc * (0.2 + Math.random() * 0.8), -a.gy * sc * Math.random(), sw * (0.2 + Math.random() * 0.7), 2 + Math.random() * 5);
+        }
+        ctx.restore();
+    }
+    function drawPlayer(p) {
+        const sx = p.x - cam.x, sy = p.y - cam.y, ps = lv.ps;
+        if (p.dead && p.deadT > GLITCH_T) return;                                                           // dead and gone: nothing is drawn any more
+        drawShadow(sx, sy, 46 * ps * (p.dead ? 1 - p.deadT / GLITCH_T : 1), p.z);
         const pk = pick(p), a = pk[0], f = pk[1];
         if (!a || !a.img) return;
         const sc = a.sc * ps;
+        if (p.dead) { drawGlitch(p, a, f, sc, sx, sy); return; }
         ctx.save(); ctx.translate(sx, sy - p.z);
-        if (p.dead) { const k = Math.min(1, (p.dead++ / 18)); ctx.rotate((p.face < 0 ? 1 : -1) * 1.45 * k); }              // falls over backwards
-        else if (p.inv > 0 && Math.floor(p.inv * 16) % 2) ctx.globalAlpha = 0.45;                          // blinks while it can't be hurt
+        if (p.inv > 0 && Math.floor(p.inv * 16) % 2) ctx.globalAlpha = 0.45;                          // blinks while it can't be hurt
         if (S.f.shield > 0) { const g = ctx.createRadialGradient(0, -90, 20, 0, -90, 105); g.addColorStop(0, "rgba(120,200,255,.05)"); g.addColorStop(1, "rgba(120,200,255,.45)"); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, -90, 105, 0, 7); ctx.fill(); ctx.strokeStyle = "rgba(180,230,255,.8)"; ctx.lineWidth = 3; ctx.stroke(); }
         if (S.f.rage > 0 && !window.RUNMIL_PERF) ctx.filter = "saturate(1.8) brightness(1.15) hue-rotate(-12deg)";
         if (p.face > 0) ctx.scale(-1, 1);                                                                  // the GIFs face left
         ctx.drawImage(a.img, (f % a.cols) * a.fw, Math.floor(f / a.cols) * a.fh, a.fw, a.fh, -a.ax * sc, -a.gy * sc, a.fw * sc, a.fh * sc);
         ctx.restore();
+        if (twoP() && !p.dead) {                                                                            // P1 / P2 tag above the head
+            const col = p.pid ? (p.h ? p.h.color : "#ff5aa8") : "#4a9cff", ty = sy - p.z - (p.duck ? DUCK : STAND) * ps - 16;
+            ctx.save(); ctx.fillStyle = col; ctx.strokeStyle = "#0a0a28"; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(sx - 9, ty - 4); ctx.lineTo(sx + 9, ty - 4); ctx.lineTo(sx, ty + 8); ctx.closePath(); ctx.stroke(); ctx.fill();
+            ctx.font = "700 20px Teko, Impact, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "bottom"; ctx.lineWidth = 4; ctx.fillStyle = "#fff"; ctx.strokeText("P" + (p.pid + 1), sx, ty - 5); ctx.fillText("P" + (p.pid + 1), sx, ty - 5); ctx.restore();
+        }
     }
     function drawMon(m) {
         const S2 = SVM[m.t]; if (!S2) return;
@@ -824,11 +1042,64 @@
             else { const k = d.sc || 1.0; ctx.drawImage(a.img, sxm, sym, a.fw, a.fh, d.x - cam.x - a.ax * k, d.y - cam.y - a.gy * k + 8, a.fw * k, a.fh * k); }
             ctx.globalAlpha = 1;
         });
+        drawSpikes();
         if (ring) {
             const k = ring.t / 0.7, sx = ring.x - cam.x, sy = ring.y - cam.y;
             [1, 0.72].forEach(function (m, i) { ctx.strokeStyle = i ? "rgba(255,255,255," + (0.8 * (1 - k)) + ")" : "rgba(255,210,74," + (0.95 * (1 - k)) + ")"; ctx.lineWidth = (i ? 5 : 10) * (1 - k * 0.6); ctx.beginPath(); ctx.ellipse(sx, sy - 14, ring.r * m, ring.r * m * 0.3, 0, 0, 7); ctx.stroke(); });
         }
         ctx.imageSmoothingEnabled = true;
+    }
+    const SPK_R = 470;
+    function updateSpikes(dt) {                                  // the spike burst: it grows outward along 16 rays; each spike is a box checked against the monsters (Java AABB)
+        if (!spk.length) return;
+        spk.forEach(function (s) {
+            s.t += dt; const r = Math.min(1, s.t / 0.6) * SPK_R, step = Math.PI * 2 / s.n;
+            mons.forEach(function (m) {
+                if (m.st === "die" || s.hit.indexOf(m.id) >= 0) return;
+                const dx = m.x - s.x, dy = (m.y - s.y) / 0.35, rm = Math.hypot(dx, dy); if (rm > r + 20) return;
+                const tn = Math.round(Math.atan2(dy, dx) / step) * step, sx = s.x + Math.cos(tn) * rm, sy = s.y + Math.sin(tn) * rm * 0.35;      // the spike that is nearest to this monster
+                if (Math.abs(m.y - sy) > 46) return;
+                const b = bodyBox(m); if (!hit(sx - 30, -120, 60, 120, b[0], b[1], b[2], b[3], "SPIKE", "atk", sy)) return;
+                s.hit.push(m.id); if (!m.d.boss) { m.kb = (m.x < s.x ? -1 : 1) * 380; m.down = 0.8; m.dn = m.x < s.x ? -1 : 1; } hurtMon(m, spDmg(m), s.kind === "flames" ? "#ff9a3a" : "#d08aff"); spark(m.x, m.y - 60 - m.z, s.kind === "flames" ? "#ffb84a" : "#d9a8ff", 6);
+            });
+        });
+        spk = spk.filter(function (s) { return s.t < (s.land ? 1.7 : 1); });
+    }
+    function drawFlame(p, t) {                                   // one tongue of fire: a flickering teardrop, red at the bottom, yellow at the tip
+        const w = p.w * 1.5, fk = Math.sin(t * 22 + p.ph) * 0.12, hh = p.h * (1 + fk), sw = Math.sin(t * 17 + p.ph * 1.3) * w * 0.45;
+        const gr = ctx.createLinearGradient(0, p.y, 0, p.y - hh); gr.addColorStop(0, "#c81a05"); gr.addColorStop(0.4, "#ff6a10"); gr.addColorStop(0.75, "#ffb52a"); gr.addColorStop(1, "#fff0a0");
+        ctx.fillStyle = "rgba(0,0,0,.3)"; ctx.beginPath(); ctx.ellipse(p.x, p.y, w * 1.2, w * 0.38, 0, 0, 7); ctx.fill();
+        ctx.fillStyle = gr; ctx.beginPath(); ctx.moveTo(p.x - w, p.y);
+        ctx.bezierCurveTo(p.x - w * 1.25, p.y - hh * 0.45, p.x - w * 0.3 + sw * 0.5, p.y - hh * 0.65, p.x + sw, p.y - hh);
+        ctx.bezierCurveTo(p.x + w * 0.4 + sw * 0.5, p.y - hh * 0.62, p.x + w * 1.25, p.y - hh * 0.4, p.x + w, p.y); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = "rgba(255,245,170,.85)"; ctx.beginPath(); ctx.moveTo(p.x - w * 0.42, p.y);
+        ctx.quadraticCurveTo(p.x - w * 0.5, p.y - hh * 0.38, p.x + sw * 0.45, p.y - hh * 0.62); ctx.quadraticCurveTo(p.x + w * 0.55, p.y - hh * 0.36, p.x + w * 0.42, p.y); ctx.closePath(); ctx.fill();
+    }
+    function drawSpikes() {
+        spk.forEach(function (s) {
+            const step = Math.PI * 2 / s.n, al = Math.max(0, Math.min(1, 1 - (s.t - 0.7) / 0.3)), L = [], fl = s.kind === "flames";
+            const gl = ctx.createRadialGradient(s.x - cam.x, s.y - cam.y - 6, 10, s.x - cam.x, s.y - cam.y - 6, SPK_R * Math.min(1, s.t / 0.6));
+            ctx.save(); ctx.globalAlpha = al * 0.5; ctx.fillStyle = "rgba(176,92,255,.0)"; gl.addColorStop(0, fl ? "rgba(255,200,90,.45)" : s.land ? "rgba(190,130,70,.35)" : "rgba(220,170,255,.35)"); gl.addColorStop(1, fl ? "rgba(255,90,20,0)" : s.land ? "rgba(120,70,30,0)" : "rgba(176,92,255,0)"); ctx.fillStyle = gl; ctx.beginPath(); ctx.ellipse(s.x - cam.x, s.y - cam.y - 6, SPK_R * Math.min(1, s.t / 0.6), SPK_R * 0.35 * Math.min(1, s.t / 0.6), 0, 0, 7); ctx.fill(); ctx.restore();
+            for (let i = 0; i < s.n; i++) for (let rk = 50; rk <= SPK_R; rk += (fl ? 66 : s.land ? 120 : 80)) {
+                const tk = s.t - rk / SPK_R * 0.6; if (tk < 0) continue;
+                const a = i * step, g = Math.min(1, tk / 0.1), h = (fl ? 74 + 62 * rk / SPK_R : 48 + 40 * rk / SPK_R) * (g * (2 - g));
+                L.push({ x: s.x + Math.cos(a) * rk - cam.x, y: s.y + Math.sin(a) * rk * 0.35 - cam.y, h: h, w: 8 + 5 * rk / SPK_R, o: (i % 2 ? 4 : -4), ph: i * 1.7 + rk * 0.05, tk: tk, rk: rk });
+            }
+            L.sort(function (p, q) { return p.y - q.y; });
+            ctx.save(); ctx.globalAlpha = al; ctx.lineJoin = "round";
+            L.forEach(function (p) {
+                if (fl) { drawFlame(p, s.t); return; }
+                if (s.land) {                                                 // an eruption of earth (the 9 pictures of the sprite play once at every spot)
+                    const fx = s.h.fx, im = flameImg(s.h), fr = Math.floor(p.tk / (fx.ms / 1000)); if (fr >= fx.n || !im.complete || !im.naturalWidth) return;
+                    const k = 0.36 + 0.22 * p.rk / SPK_R; ctx.drawImage(im, fr * fx.fw, 0, fx.fw, fx.fh, p.x - fx.fw * k / 2, p.y - fx.fh * k + 6, fx.fw * k, fx.fh * k); return;
+                }
+                const gr = ctx.createLinearGradient(0, p.y, 0, p.y - p.h); gr.addColorStop(0, "#4a1496"); gr.addColorStop(0.55, "#b05cff"); gr.addColorStop(1, "#f6e4ff");
+                ctx.fillStyle = "rgba(0,0,0,.35)"; ctx.beginPath(); ctx.ellipse(p.x, p.y, p.w * 1.3, p.w * 0.4, 0, 0, 7); ctx.fill();
+                ctx.fillStyle = gr; ctx.strokeStyle = "#1c0640"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(p.x - p.w, p.y); ctx.lineTo(p.x + p.o, p.y - p.h); ctx.lineTo(p.x + p.w, p.y); ctx.closePath(); ctx.fill(); ctx.stroke();
+                ctx.strokeStyle = "rgba(255,255,255,.7)"; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(p.x - p.w * 0.35, p.y - 3); ctx.lineTo(p.x + p.o * 0.8, p.y - p.h * 0.85); ctx.stroke();
+            });
+            ctx.restore();
+        });
     }
     function drawBuffs() {
         let x = 16; const y = 128;
@@ -850,10 +1121,11 @@
         ctx.save();
         if (shake > 0) ctx.translate((Math.random() - 0.5) * shake * 22, (Math.random() - 0.5) * shake * 22);
         ctx.scale(Z, Z);
-        const list = [{ y: me.y, f: drawPlayer }];
+        const list = PL.map(function (p) { return { y: p.y, f: function () { drawPlayer(p); } }; });
         pks.forEach(function (p) { list.push({ y: p.y - 1, f: function () { drawPk(p); } }); });
         mons.forEach(function (m) { list.push({ y: m.y, f: function () { drawMon(m); } }); });
         list.sort(function (a, b) { return a.y - b.y; }).forEach(function (o) { o.f(); });                  // whoever is lower on the path is drawn in front
+        drawFlames(); drawWind();
         fx.forEach(function (f) {
             if (f.k === "p") { ctx.fillStyle = f.c; ctx.globalAlpha = Math.max(0, Math.min(1, f.l * 2)); ctx.fillRect(f.x - cam.x, f.y - cam.y, f.sz || 5, f.sz || 5); ctx.globalAlpha = 1; }
             else if (f.k === "b") { const k = Math.max(0, f.l / f.max), R = f.r * (1.15 - k * 0.55); ctx.save(); ctx.translate(f.x - cam.x, f.y - cam.y); ctx.rotate(f.a); ctx.globalAlpha = Math.min(1, k * 1.6); ctx.fillStyle = "#fff6c8"; ctx.strokeStyle = "#ff9a1f"; ctx.lineWidth = 3; ctx.beginPath(); for (let i = 0; i < 16; i++) { const rr = i % 2 ? R * 0.42 : R, an = i * Math.PI / 8; ctx.lineTo(Math.cos(an) * rr, Math.sin(an) * rr); } ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.restore(); }
@@ -868,12 +1140,17 @@
                 pks.forEach(function (p) { xl.push({ B: { x: p.x - 26, y: p.y - (p.z0 + 54), w: 52, h: 54 }, far: Math.abs(p.y - me.y) > 40 }); });
                 RMX.vis.xray(ctx, { x: me.x - HALF_W, y: me.y - (me.z + ph), w: HALF_W * 2, h: ph }, xl, cam.x, cam.y, WW, WH);
             }
+            if (RMX.vis.mode === 1 && RMX.vis.xrayP) PL.forEach(function (q) {            // the other player(s) get their box, guide lines and verdicts too
+                if (q === me || q.dead) return; const ph2 = q.duck ? DUCK : STAND, xl2 = [];
+                mons.forEach(function (m) { if (m.st === "die") return; const b = bodyBox(m); xl2.push({ B: { x: b[0], y: m.y + b[1], w: b[2], h: b[3] }, far: Math.abs(m.y - q.y) > m.d.lane + 8 }); });
+                RMX.vis.xrayP(ctx, { x: q.x - HALF_W, y: q.y - (q.z + ph2), w: HALF_W * 2, h: ph2 }, xl2, "P2  (A2)", cam.x, cam.y, WW, WH);
+            });
             RMX.vis.draw(ctx, cam.x, cam.y, WW, WH, paused ? 0 : vdt);
         }
         ctx.restore();
         ctx.save(); ctx.scale(Z, Z); drawDisasters(); ctx.restore();
         if (S.f.freeze > 0) { ctx.fillStyle = "rgba(140,210,255," + (0.10 + 0.04 * Math.sin(S.t * 6)) + ")"; ctx.fillRect(0, 0, VW, VH); }
-        drawBuffs(); ctx.save(); ctx.scale(Z, Z); drawShots(); ctx.restore(); drawWeaponHud();
+        drawBuffs(); ctx.save(); ctx.scale(Z, Z); drawShots(); ctx.restore(); drawWeaponHud(false); if (twoP()) drawWeaponHud(true);
         bgimg.style.transform = "translate(" + (-cam.x * K * Z) + "px," + (-cam.y * K * Z) + "px)";
     }
     let fpsN = 0, fpsSum = 0;
@@ -891,21 +1168,35 @@
 
     // ---------- the end of a level ----------
     function sum() { return S.kills + " monsters beaten &bull; " + Math.floor(S.t / 60) + ":" + String(Math.floor(S.t % 60)).padStart(2, "0") + " &bull; hit " + S.hurt + " times &bull; best combo " + S.best; }
-    function gameOver() { if (ended) return; ended = true; if (window.RMX) RMX.calc($("aabb-calc"), me && me.lastHit); $("over-sum").innerHTML = "Wave " + (wv ? Math.max(1, wv.n) : 1) + " of " + WAVES + "<br>" + sum(); $("over").hidden = false; }
+    function gameOver() { if (ended) return; ended = true; if (window.RMX) RMX.calc($("aabb-calc"), (PL.map(function (q) { return q.lastHit; }).filter(Boolean).pop()) || (me && me.lastHit)); $("over-sum").innerHTML = "Wave " + (wv ? Math.max(1, wv.n) : 1) + " of " + WAVES + "<br>" + sum(); $("over").hidden = false; }
     function levelClear() {
         if (ended) return; ended = true;
-        const p = getProg(); p.cleared[lv.n] = 1; p.unlocked = Math.max(p.unlocked, Math.min(4, lv.n + 1)); setProg(p);
+        const p = getProg(), first = !p.cleared[lv.n], newH = DUO && first ? DUO.forLevel(lv.n) : null; p.cleared[lv.n] = 1; p.unlocked = Math.max(p.unlocked, Math.min(4, lv.n + 1)); setProg(p);
+        if (newH && !duoSave().p2) setDuo({ p2: newH.id });
         SFX("victory");
-        $("clear-sum").innerHTML = sum() + (lv.n + 1 < LOCK_FROM ? "<br>Level " + (lv.n + 1) + " is unlocked!" : "<br>More levels are coming soon!");
+        $("clear-sum").innerHTML = sum() + (lv.n + 1 < LOCK_FROM ? "<br>Level " + (lv.n + 1) + " is unlocked!" : "<br>More levels are coming soon!") + (newH ? '<br><b class="newh" style="color:' + newH.color + '">NEW CHARACTER: ' + newH.name + '!</b><br><span style="font-size:.72em;color:#cfd8ff">Choose her as Player 2 on the level screen.</span>' : "");
         $("next").hidden = lv.n + 1 >= LOCK_FROM || lv.n >= 4;
-        setTimeout(function () { $("clear").hidden = false; }, 900);
+        if (newH && newH.revealed && newH.img) setTimeout(function () { showUnlock(newH, function () { $("clear").hidden = false; }); }, 900);
+        else setTimeout(function () { $("clear").hidden = false; }, 900);
+    }
+    // a new heroine: the screen flashes, she pops in, and the text says who was unlocked
+    function showUnlock(h, done) {
+        const el = $("unlock"); if (!el) { done(); return; }
+        $("ul-img").src = h.img; $("ul-name").textContent = h.name; $("ul-name").style.color = h.color; el.style.setProperty("--hc", h.color);
+        el.hidden = false; el.classList.remove("go"); void el.offsetWidth; el.classList.add("go"); SFX("item"); SFX("boom"); shake = 0.4;
+        let fin = false;
+        function end() { if (fin) return; fin = true; clearTimeout(t); el.removeEventListener("click", end); removeEventListener("keydown", key, true); el.hidden = true; el.classList.remove("go"); done(); }
+        function key(e) { if (e.code === "Enter" || e.code === "Space" || e.code === "Escape") { e.preventDefault(); e.stopPropagation(); end(); } }
+        const t = setTimeout(end, 7000);
+        setTimeout(function () { if (!fin) { el.addEventListener("click", end); addEventListener("keydown", key, true); } }, 1600);          // a short moment before it can be skipped
     }
 
     // handy for the next steps + testing
     window.RunMilSurvival = {
-        levels: LEVELS, setProgress: setProgress, toast: toast, state: function () { return me; }, cam: function () { return cam; }, start: startLevel,
+        levels: LEVELS, setProgress: setProgress, toast: toast, state: function () { return me; }, players: function () { return PL; }, setHp: function (i) { setHp(PL[i]); }, setEn: function (i, v) { PL[i].en = v; setEn(PL[i]); }, spikes: function () { return spk; }, levelClear: function () { levelClear(); }, mode: function () { return MODE; }, cam: function () { return cam; }, start: startLevel,
         monsters: function () { return mons; }, pickups: function () { return pks; }, addPk: addPk, applyPU: applyPU, fxState: function () { return S.f; },  wave: function () { return wv; }, spawn: function (t) { return spawn(t); }, hurt: function (n) { hurtPlayer({ d: { dmg: n || 10 }, x: me.x + 10 }); },
         step: function (dt) { update(dt); }, beginWave: function (n) { beginWave(n); }, kill: function (m, q) { kill(m, q); }, ended: function () { return ended; },
+        showUnlock: function (id, f) { showUnlock(DUO.byId(id), f || function () {}); },
         clear: function (n) { const p = getProg(); p.cleared[n] = 1; p.unlocked = Math.max(p.unlocked, Math.min(4, n + 1)); setProg(p); }
     };
     resize(); showSelect();

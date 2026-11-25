@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RUN MIL! sound test</title>
+<style>
+body{font:15px/1.5 system-ui,sans-serif;background:#0b1230;color:#eaf0ff;margin:0;padding:20px}
+h1{margin:0 0 4px;font-size:24px} p{color:#9aa8d6;margin:4px 0 14px;max-width:70ch}
+h2{margin:22px 0 8px;font-size:16px;color:#ffd24a}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px}
+button{display:flex;justify-content:space-between;gap:8px;align-items:center;width:100%;padding:9px 12px;border-radius:8px;border:1px solid #2b3a78;background:#131d47;color:#eaf0ff;font:600 13px system-ui;cursor:pointer;text-align:left}
+button:hover{border-color:#5a8bff} button small{font:500 11px ui-monospace,monospace;color:#9aa8d6;white-space:nowrap}
+button.f{border-color:#3ddc97} button.f small{color:#3ddc97} button.x{border-color:#ff6b6e} button.x small{color:#ff6b6e}
+.bar{display:flex;gap:8px;margin:10px 0}
+</style></head><body>
+<h1>RUN MIL! sound test</h1>
+<p>Click a sound to play it. Green means your own file from <b>sounds.js</b> is used, grey means the built-in sound. Red means a listed file could not be loaded (the built-in sound plays instead). After editing sounds.js, refresh with Ctrl+F5.</p>
+<div class="bar"><button id="stop" style="width:auto">Stop music</button></div>
+<h2>Sound effects</h2><div class="grid" id="sfx"></div>
+<h2>Music</h2><div class="grid" id="music"></div>
+<script src="visuals/audio/sounds.js"></script>
+<script src="audio.js"></script>
+<script>
+(function(){
+  var A=RunMilAudio, n=A.names(), extra=["boss_warn"];
+  function label(kind,name){ var s=A.source(kind,name); return s==="your file"?"your file":(s==="built-in"?"built-in":"missing"); }
+  function mk(kind,name,host){
+    var b=document.createElement("button"); host.appendChild(b);
+    function paint(){ var l=label(kind,name); b.className=l==="your file"?"f":(l==="missing"?"x":""); b.innerHTML="<span>"+name+"</span><small>"+l+"</small>"; }
+    paint(); b.onclick=function(){ if(kind==="sfx") A.sfx(name); else A.music(name); setTimeout(paint,600); };
+  }
+  n.sfx.concat(["click","pause","resume","ach"].filter(function(x){return n.sfx.indexOf(x)<0;})).concat(extra.filter(function(x){return n.sfx.indexOf(x)<0;})).forEach(function(x){mk("sfx",x,document.getElementById("sfx"));});
+  n.music.concat(["survival"]).forEach(function(x){mk("music",x,document.getElementById("music"));});
+  document.getElementById("stop").onclick=function(){A.stop();};
+})();
+</script></body></html>

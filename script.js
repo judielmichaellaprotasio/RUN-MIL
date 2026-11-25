@@ -175,7 +175,8 @@ function refreshMenu() {
     $("mission-text").textContent = "Collect " + m.goal + " Coins";
     $("mission-count").textContent = Math.min(m.progress, m.goal) + " / " + m.goal;
     $("mission-fill").style.width = Math.min(100, m.progress / m.goal * 100) + "%";
-    $("missions-btn").classList.toggle("ready", m.progress >= m.goal && !m.claimed);
+    const ready = m.progress >= m.goal && !m.claimed;
+    $("missions-btn").classList.toggle("ready", ready);                       // red dot on the left button
     document.querySelector(".m-reward b").textContent = m.claimed ? "Done" : "+" + m.reward;
 
     $("stat-best").textContent = ": " + fmt(player.stats.bestScore);
@@ -216,7 +217,7 @@ const menuHandlers = {};
 const menuLabels = {
     play: "Game", customize: "Character Customization", shop: "Equipment Shop",
     achievements: "Achievements", settings: "Settings", missions: "Daily Missions", map: "Location Map",
-    profile: "Profile", collection: "Collection Book"
+    profile: "Profile", collection: "Collection Book", heroines: "Heroines"
 };
 
 function openFeature(name) {
@@ -226,11 +227,11 @@ function openFeature(name) {
 }
 
 [
-    ["play-btn", "play"], ["customize-btn", "customize"], ["shop-btn", "shop"], ["collect-btn", "collection"],
+    ["play-btn", "play"], ["customize-btn", "customize"], ["shop-btn", "shop"], ["collect-btn", "collection"], ["heroes-btn", "heroines"],
     ["achievements-btn", "achievements"], ["settings-btn", "settings"], ["stats-btn", "profile"], ["missions-btn", "missions"], ["map-btn", "map"],
     ["profile-btn", "profile"]
 ].forEach(function (pair) {
-    $(pair[0]).addEventListener("click", function () { openFeature(pair[1]); });
+    $(pair[0]).addEventListener("click", function () { if (pair[1] === "play" && window.RunMilPlayPick) { window.RunMilPlayPick(); return; } openFeature(pair[1]); });      // PLAY always asks which game
 });
 
 // choose a location
@@ -294,7 +295,7 @@ function openGame(mode) {
     if (window.RunMilAudio) RunMilAudio.stop();                 // the game has its own music
     gameFrame.hidden = false;
     gameFrame.onload = function () { try { gameFrame.contentWindow.focus(); } catch (e) { /* ignore */ } };
-    gameFrame.src = (mode === "survival" ? "survival.html" : "game.html?mode=endless") + (mode === "survival" ? "?" : "&") + "t=" + Date.now();            // fresh load = latest equipment / outfit
+    gameFrame.src = (mode === "versus" ? "versus.html" : mode === "survival" ? "survival.html" : "game.html?mode=endless") + (mode === "endless" ? "&" : "?") + "t=" + Date.now();            // fresh load = latest equipment / outfit
 }
 function closeGame() {
     gameFrame.hidden = true;
@@ -310,7 +311,22 @@ window.addEventListener("message", function (e) {
     if (e.source === gameFrame.contentWindow && e.data === "runmil:home") closeGame();
 });
 
-// PLAY opens the mode picker (see screens.js), which then calls openGame("endless")
+// MODE CARDS (Endless Run / Monster Survival): pick one, then press PLAY. Pressing the picked card again also starts it.
+let menuMode = "endless";
+try { localStorage.removeItem("runmil_menu_mode"); } catch (e) { /* storage unavailable */ }      // the last picked game is no longer remembered
+function setMenuMode(m) {
+    menuMode = m === "survival" ? "survival" : "endless";
+    document.querySelectorAll(".mode-card").forEach(function (b) { const on = b.dataset.mode === menuMode; b.classList.toggle("on", on); b.setAttribute("aria-pressed", on ? "true" : "false"); });
+}
+document.querySelectorAll(".mode-card").forEach(function (b) {
+    b.addEventListener("click", function () { if (window.RunMilModeInfo) RunMilModeInfo(b.dataset.mode); });      // the cards only show what the game is about; PLAY opens the "choose your game" screen
+});
+document.querySelectorAll(".mode-card").forEach(function (b) { b.classList.remove("on"); b.setAttribute("aria-pressed", "false"); });      // nothing is pre-selected
+window.RunMilMenuMode = function () { return menuMode; };
+window.RunMilSetMode = function () { };
+$("gem-plus").addEventListener("click", function () { menuToast("Earn gems from missions and achievements"); });
+
+// PLAY starts the picked mode (see screens.js)
 window.openGame = openGame;
 
 // coming back from the game (game.html -> index.html?menu) skips the videos
