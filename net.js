@@ -34,8 +34,8 @@
             });
         }
         } catch (e) { emit("error", { fatal: 1, message: "Phone link failed to start: " + (e && e.message || e) }); return Promise.resolve(); }
-        const call = role === "host" ? P.host().then(function (r) { emit("hosting", { ips: (r && r.ips) || [] }); }) : P.join({ ip: ip || "" });
-        return call.catch(function (e) { emit("error", { message: (e && (e.message || e.errorMessage)) || "Could not start" }); });
+        NET.step = "calling"; const call = role === "host" ? P.host().then(function (r) { NET.step = "resolved"; emit("hosting", { ips: (r && r.ips) || [] }); }) : P.join({ ip: ip || "" });
+        return call.catch(function (e) { NET.step = "rejected"; emit("error", { message: (e && (e.message || e.errorMessage)) || "Could not start" }); });
     }
 
     // ---------- browser test link (two tabs) ----------
@@ -58,6 +58,7 @@
 
     window.RunMilNet = {
         available: function () { return NATIVE || TEST; },
+        diag: function () { try { const C = window.Capacitor || {}; return "link-v3 | native=" + NATIVE + " | plugins=" + (C.PluginHeaders ? C.PluginHeaders.map(function (h) { return h.name; }).join(",") : "n/a") + " | have=" + haveNative() + " | step=" + (NET.step || "-"); } catch (e) { return "diag failed"; } },
         native: NATIVE,
         isOpen: function () { return NET.open; },
         role: function () { return NET.role; },

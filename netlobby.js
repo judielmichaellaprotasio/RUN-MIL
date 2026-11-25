@@ -42,7 +42,7 @@
         $("nlb-msg").textContent = NATIVE ? "Switch ON your phone's Hotspot (Settings > Hotspot) and tell your friend to join it." : "Waiting for your friend...";
         $("nlb-wsub").textContent = NATIVE ? "Your friend joins your hotspot Wi-Fi, then taps JOIN A GAME. Waiting for them..." : "Your friend picks this name.";
         NT.host($("nlb-code").textContent);
-        if (NATIVE) setTimeout(function () { if (state === "host" && $("nlb-code").textContent === "...") $("nlb-msg").textContent = "Hosting did not start. Install the newest app version (APK) on this phone, then try again."; }, 4000);
+        if (NATIVE) setTimeout(function () { if (state === "host" && $("nlb-code").textContent === "...") { $("nlb-msg").textContent = "Hosting did not start. Install the newest app version (APK) on this phone, then try again."; $("nlb-wsub").textContent = NT.diag ? NT.diag() : "old net.js"; } }, 4000);
     });
     $("nlb-join").addEventListener("click", function () {
         Object.keys(found).forEach(function (k) { found[k].remove(); delete found[k]; }); setState("join");
