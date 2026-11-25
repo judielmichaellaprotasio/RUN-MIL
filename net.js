@@ -1,9 +1,8 @@
 /* RUN MIL! - two-device link for 1 VS 1 (and later 2 player Monster Survival).
-   Android app : uses the native "RunMilNearby" plugin (Google Nearby Connections: it finds the other phone and connects over Bluetooth,
-                 and moves to Wi-Fi Direct by itself when it needs more speed).  No internet needed.
+   Android app : uses the native "RunMilLan" plugin: the HOST phone turns its Hotspot on, the other phone joins that Wi-Fi and connects to it (plain TCP, no internet needed).
    Testing     : add  ?nettest=1  to the page address and open the page in TWO tabs of the same browser: they link through a BroadcastChannel.
    API : RunMilNet.available()  RunMilNet.host(name)  RunMilNet.join()  RunMilNet.connect(id)  RunMilNet.send(obj)  RunMilNet.close()  RunMilNet.on(type, fn)
-   events : found {id,name}   lost {id}   open {role,peer}   msg {...}   close {}   error {message}   */
+   events : hosting {ips}   found {id,name}   lost {id}   open {role,peer}   msg {...}   close {}   error {message}   */
 (function () {
     "use strict";
     const H = {};
@@ -11,21 +10,19 @@
     const TEST = /[?&]nettest=1/.test(location.search);
     function plug() {
         const C = window.Capacitor; if (!C) return null;
-        try { return (C.Plugins && C.Plugins.RunMilNearby) || (C.registerPlugin ? C.registerPlugin("RunMilNearby") : null); } catch (e) { return null; }
+        try { return (C.Plugins && C.Plugins.RunMilLan) || (C.registerPlugin ? C.registerPlugin("RunMilLan") : null); } catch (e) { return null; }
     }
-    const NATIVE = !!(window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform() && plug());
+    const NATIVE = !!(window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform() && plug()) && !TEST;
     const NET = { role: "", peer: null, open: false, handles: [] };
 
-    // ---------- Android: Nearby Connections ----------
-    function nativeStart(role, name) {
+    // ---------- Android: the host's hotspot (Wi-Fi).  The HOST phone turns its Hotspot on and listens; the other phone joins that Wi-Fi and connects to the host ----------
+    function nativeStart(role, ip) {
         const P = plug(); NET.role = role;
         if (!NET.handles.length) {
-            ["found", "lost", "connected", "message", "closed", "failure"].forEach(function (ev) {
+            ["connected", "message", "closed", "failure"].forEach(function (ev) {
                 const h = P.addListener(ev, function (d) {
                     d = d || {};
-                    if (ev === "found") emit("found", { id: d.id, name: d.name });
-                    else if (ev === "lost") emit("lost", { id: d.id });
-                    else if (ev === "connected") { NET.open = true; NET.peer = d.name || "FRIEND"; emit("open", { role: NET.role, peer: NET.peer }); }
+                    if (ev === "connected") { NET.open = true; NET.peer = d.ip || "FRIEND"; emit("open", { role: NET.role, peer: NET.peer }); }
                     else if (ev === "message") { let o = null; try { o = JSON.parse(d.data); } catch (e) { /* not ours */ } if (o) emit("msg", o); }
                     else if (ev === "closed") { const was = NET.open; NET.open = false; if (was) emit("close", {}); }
                     else emit("error", { message: d.message || "Connection failed" });
@@ -33,7 +30,8 @@
                 NET.handles.push(h);
             });
         }
-        return P.start({ role: role, name: name || "" }).catch(function (e) { emit("error", { message: (e && (e.message || e.errorMessage)) || "Could not start" }); });
+        const call = role === "host" ? P.host().then(function (r) { emit("hosting", { ips: (r && r.ips) || [] }); }) : P.join({ ip: ip || "" });
+        return call.catch(function (e) { emit("error", { message: (e && (e.message || e.errorMessage)) || "Could not start" }); });
     }
 
     // ---------- browser test link (two tabs) ----------
@@ -60,8 +58,8 @@
         isOpen: function () { return NET.open; },
         role: function () { return NET.role; },
         peerName: function () { return NET.peer; },
-        host: function (name) { return NATIVE ? nativeStart("host", name) : bcStart("host", name); },
-        join: function (name) { return NATIVE ? nativeStart("guest", name) : bcStart("guest", name); },
+        host: function (name) { return NATIVE ? nativeStart("host") : bcStart("host", name); },
+        join: function (name, ip) { return NATIVE ? nativeStart("guest", ip) : bcStart("guest", name); },
         connect: function (id, name) {
             if (NATIVE) return plug().connect({ id: id }).catch(function (e) { emit("error", { message: (e && (e.message || e.errorMessage)) || "Could not connect" }); });
             bc.postMessage({ k: "req", to: id, from: myId, name: name || "FRIEND" }); return Promise.resolve();

@@ -582,9 +582,9 @@
         $("sel-sub").textContent = NET.on ? (NET.host ? "Pick your fighter and the arena. Press FIGHT when your friend is ready!" : "Pick your fighter. The host chooses the arena and starts the match.") : "Pick your fighters. Best of three rounds. Last one standing wins!";
     }
     function startNet(role) {
-        NET.on = true; NET.host = role === "host"; NET.slot = NET.host ? 0 : 1; NET.q = []; NET.seq = 0; NET.last = 0; NET.gotSel = 0;
+        NET.on = true; NET.host = role === "host"; NET.slot = NET.host ? 0 : 1; NET.q = []; NET.seq = 0; NET.last = 0; NET.gotSel = 0; if (window.RunMilLobby) RunMilLobby.hide();
         if (!CH[pick[NET.slot]].open) pick[NET.slot] = 0;
-        ph = "select"; F = []; objs = []; $("lobby").hidden = true; $("select").hidden = false; $("win").hidden = true; $("hud").hidden = true; $("vs").hidden = true; $("pause").hidden = true; paused = false; banner("");
+        ph = "select"; F = []; objs = []; $("select").hidden = false; $("win").hidden = true; $("hud").hidden = true; $("vs").hidden = true; $("pause").hidden = true; paused = false; banner("");
         buildSelect(); netUI(); sel(); nsend({ t: "hi" }); toast("CONNECTED TO " + (NT.peerName() || "FRIEND"));
     }
     function leaveNet(home) {
@@ -593,7 +593,7 @@
     }
     function lost() {
         if (!NET.on) return; NET.on = false; NET.host = false; toSelect();
-        if (ONLY_NET) showLobby("CONNECTION LOST. Check Bluetooth and try again."); else toast("CONNECTION LOST");
+        if (ONLY_NET) showLobby("CONNECTION LOST. Check the hotspot and Wi-Fi and try again."); else toast("CONNECTION LOST");
     }
     function toast(t) { const el = $("netmsg"); el.textContent = t; el.classList.remove("on"); void el.offsetWidth; el.classList.add("on"); }
     function onEv(m) {
@@ -611,34 +611,10 @@
         else if (m.t === "clr") { if (NET.host && F[1]) F[1].keys = {}; }
         else if (m.t === "cmd") { if (NET.host) doCmd(m.c); }
     }
-    function lbState(st) { $("lb-main").hidden = st !== ""; $("lb-wait").hidden = st !== "host"; $("lb-list").hidden = st !== "join"; $("lobby").dataset.st = st; }
-    function showLobby(msg) {
-        $("lobby").hidden = false; $("select").hidden = true; lbState("");
-        $("lb-msg").textContent = msg || "Switch Bluetooth on for both phones and keep the RUN MIL! app open on both. One phone hosts, the other joins.";
-    }
-    const found = {};
+    function showLobby(msg) { $("select").hidden = true; if (window.RunMilLobby) RunMilLobby.show({ msg: msg || "", onOpen: startNet, onBack: function () { if (/[?&]from=sv/.test(location.search)) location.href = "survival.html"; else if (ONLY_NET) goHome(); else { $("select").hidden = false; } } }); }
     if (NT) {
-        NT.on("found", function (d) {
-            if (found[d.id]) return; const b = document.createElement("button"); b.className = "lb-dev"; b.textContent = d.name || "PLAYER"; found[d.id] = b; $("lb-devs").appendChild(b); $("lb-none").hidden = true;
-            b.addEventListener("click", function () { $("lb-msg").textContent = "Connecting to " + (d.name || "your friend") + "..."; NT.connect(d.id, NET.name); });
-        });
-        NT.on("lost", function (d) { const b = found[d.id]; if (b) { b.remove(); delete found[d.id]; } if (!Object.keys(found).length) $("lb-none").hidden = false; });
-        NT.on("open", function (d) { startNet(d.role); });
         NT.on("msg", onNet);
         NT.on("close", lost);
-        NT.on("error", function (d) { lbState(""); $("lb-msg").textContent = (d && d.message ? d.message : "Could not connect") + ". Check Bluetooth and the permissions, then try again."; });
-        $("lb-host").addEventListener("click", function () {
-            NET.name = "MIL-" + (100 + Math.floor(Math.random() * 900)); lbState("host"); $("lb-code").textContent = NET.name; $("lb-msg").textContent = "Waiting for your friend...";
-            NT.host(NET.name);
-        });
-        $("lb-join").addEventListener("click", function () {
-            NET.name = "FRIEND-" + (100 + Math.floor(Math.random() * 900)); Object.keys(found).forEach(function (k) { found[k].remove(); delete found[k]; }); $("lb-none").hidden = false; lbState("join"); $("lb-msg").textContent = "Looking for a host nearby...";
-            NT.join(NET.name);
-        });
-        $("lb-back").addEventListener("click", function () {
-            if ($("lobby").dataset.st) { NT.close(); showLobby(""); return; }
-            if (ONLY_NET) { if (/[?&]from=sv/.test(location.search)) location.href = "survival.html"; else goHome(); } else { $("lobby").hidden = true; $("select").hidden = false; }
-        });
         if (NT.available() && !ONLY_NET) { const nb = $("vs-net"); nb.hidden = false; nb.addEventListener("click", function () { showLobby(""); }); }
     }
 

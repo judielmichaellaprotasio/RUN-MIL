@@ -27,3 +27,7 @@ html.has-touch #keys { display: none; }
 #tc .tc-ac .ki { right: 18vmin; bottom: 17vmin; background: rgba(255, 150, 40, .55); }
 #tc .tc-ac .sp { right: 1vmin; bottom: 20vmin; width: 13vmin; height: 13vmin; font-size: 5vmin; background: rgba(170, 70, 255, .55); }
 #tc .tc-ac .du { right: 35vmin; bottom: 1vmin; width: 12vmin; height: 12vmin; font-size: 4.4vmin; }
+
+#tc .tc-w .tb { position: relative; }
+#tc .tb .am { position: absolute; right: -.3vmin; bottom: -.3vmin; min-width: 4vmin; height: 4vmin; padding: 0 .8vmin; border-radius: 2vmin; background: #0a0a28; border: .3vmin solid #ffd24a; color: #ffd24a; font: 700 3.2vmin/3.6vmin Teko, Impact, sans-serif; font-style: normal; text-align: center; pointer-events: none; }
+#tc .tb.empty { opacity: .55; }

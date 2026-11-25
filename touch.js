@@ -39,6 +39,10 @@
             for (let i = 1; i <= 4; i++) wp.appendChild(btn("w", String(i), "", "Digit" + i, String(i), false));
             wp.appendChild(btn("w v", "B", "AABB", "KeyB", "b", false));
             root.appendChild(wp);
+            if (SURV) setInterval(function () {                       // ammo of every weapon shown on its button
+                const am = window.RunMilAmmo ? window.RunMilAmmo() : null; if (!am) return;
+                [].forEach.call(wp.querySelectorAll(".tb.w:not(.v)"), function (b, i) { let e = b.querySelector(".am"); if (!e) { e = document.createElement("i"); e.className = "am"; b.appendChild(e); } const v = am[i] | 0; if (e.textContent !== String(v)) e.textContent = v; b.classList.toggle("empty", !v); });
+            }, 300);
         }
         if (SURV || VS) {
             root.appendChild(cross());
@@ -52,7 +56,7 @@
         document.body.appendChild(root);
         document.documentElement.classList.add("has-touch");
         // hide the pad while a menu / pause / game-over panel is open
-        const sel = "#pause:not([hidden]), #over:not([hidden]), #clear:not([hidden]), #victory:not([hidden]), .rmx-mech, #rmx:not([hidden]), #win:not([hidden]), #lobby:not([hidden]), #vs:not([hidden])";
+        const sel = "#pause:not([hidden]), #over:not([hidden]), #clear:not([hidden]), #victory:not([hidden]), .rmx-mech, #rmx:not([hidden]), #win:not([hidden]), #nlb:not([hidden]), #vs:not([hidden])";
         function vis() { let hide = !!document.querySelector(sel); const s = document.getElementById("select"); if (s && getComputedStyle(s).display !== "none") hide = true; const h = document.getElementById("hud"); if ((SURV || VS) && h && h.hidden) hide = true; root.classList.toggle("off", hide); }
         setInterval(vis, 250); vis();
         document.addEventListener("contextmenu", function (e) { e.preventDefault(); });

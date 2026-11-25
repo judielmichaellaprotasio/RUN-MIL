@@ -431,7 +431,7 @@
         }).join("");
         return head("HEROINES") + '<div class="x-body"><div class="x-pnl x-sum"><div class="x-h">&#10067; ' + D.heroines.length + ' Heroines</div><p class="x-sub">Clear a level in Monster Survival to unlock one heroine for each of the 4 levels. Pick one as Player 2 in the 2 PLAYERS mode.</p></div><div class="hr-grid">' + cards + "</div></div>";
     }
-    (function () { const b = document.getElementById("heroes-btn"); if (b && window.RUNMIL_DUO && RUNMIL_DUO.enabled) b.hidden = false; })();
+    (function () { const b = document.getElementById("heroes-btn"); if (b) b.hidden = false; })();
 
     const R = { heroines: rHeroes, collection: rColl, mode: rMode, customize: rCustom, shop: rShop, achievements: rAch, missions: rMis, profile: rProf, settings: rSet, map: rMap };
 

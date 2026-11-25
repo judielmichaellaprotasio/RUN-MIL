@@ -378,7 +378,7 @@
         versus: {
             title: "GAME MECHANICS - 1 VS 1",
             items: [
-                ["GOAL", "Two players: one keyboard, or <b>two phones</b> linked by Bluetooth in the Android app. Pick a fighter each and win <b>more rounds</b> than your rival over <b>3 rounds</b>. The winner gets the trophy screen."],
+                ["GOAL", "Two players: one keyboard, or <b>two phones</b> linked through a hotspot in the Android app. Pick a fighter each and win <b>more rounds</b> than your rival over <b>3 rounds</b>. The winner gets the trophy screen."],
                 ["ROUNDS", "A round lasts <b>60 seconds</b>. Win it by a <b>K.O.</b>, or by having more HP when time runs out. Equal HP is a draw. If the 3 rounds end level, a <b>sudden-death</b> round decides."],
                 ["HP AND EN", "Each fighter has their own <b>HP</b> and <b>EN</b>. EN fills as you land hits (and a little when you are hit). When it is full, press your <b>special</b> key."],
                 ["DODGING", "<b>Duck</b> to slip under a punch (kicks still hit you). <b>Jump</b> to clear a kick or a shockwave. Use <b>W / S</b> (or the up and down arrows) to change lane: attacks only hit in <b>your lane</b>."]
@@ -445,7 +445,7 @@
             pages.push(p7);
             titles.push("TWO PHONES");
             const p8 = h("div", "rmx-mech-grid");
-            [["LINK THE PHONES", "In the Android app, open <b>1 VS 1</b>. One phone taps <b>HOST A GAME</b> (it shows a name like MIL-482), the other taps <b>JOIN A GAME</b> and picks that name. Turn <b>Bluetooth</b> on and allow the permissions."],
+            [["LINK THE PHONES", "No internet needed. The <b>host</b> switches on the phone's <b>Hotspot</b>; the other phone joins that Wi-Fi. The host taps <b>HOST A GAME</b>, the other taps <b>JOIN A GAME</b> then <b>CONNECT</b>."],
              ["PICK AND FIGHT", "Each player picks their <b>own fighter</b> on their own phone. The host picks the arena and presses <b>FIGHT</b>. A heroine can be used by a friend even if you have not unlocked her yet."],
              ["TOUCH CONTROLS", "A <b>cross pad</b> on the left (slide your thumb: left / right run, up / down change lane) and the <b>JUMP, PUNCH, KICK, SPECIAL and DUCK</b> buttons on the right."],
              ["STAY CLOSE", "Keep the phones within a few metres. If the link drops, the match ends and you can connect again from the same screen. Pause is off while playing over the link."]

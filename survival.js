@@ -820,6 +820,7 @@
             ctx.restore();
         });
     }
+    const TOUCHUI = !!window.RUNMIL_NATIVE || (window.matchMedia && matchMedia("(pointer: coarse)").matches) || /[?&]touch=1/.test(location.search);
     function drawWeaponHud(p2) {
         const s = 50, gap = 8, x = p2 ? VW - 14 - s : 14, W = p2 ? PL[1].wcd : PL[0].wcd;
         WEAPONS.forEach(function (w, i) {
@@ -1162,7 +1163,7 @@
         ctx.restore();
         ctx.save(); ctx.scale(Z, Z); drawDisasters(); ctx.restore();
         if (S.f.freeze > 0) { ctx.fillStyle = "rgba(140,210,255," + (0.10 + 0.04 * Math.sin(S.t * 6)) + ")"; ctx.fillRect(0, 0, VW, VH); }
-        drawBuffs(); ctx.save(); ctx.scale(Z, Z); drawShots(); ctx.restore(); drawWeaponHud(false); if (twoP()) drawWeaponHud(true);
+        drawBuffs(); ctx.save(); ctx.scale(Z, Z); drawShots(); ctx.restore(); if (!TOUCHUI) { drawWeaponHud(false); if (twoP()) drawWeaponHud(true); }
         bgimg.style.transform = "translate(" + (-cam.x * K * Z) + "px," + (-cam.y * K * Z) + "px)";
     }
     let fpsN = 0, fpsSum = 0;
@@ -1204,6 +1205,7 @@
     }
 
     // handy for the next steps + testing
+    window.RunMilAmmo = function () { return WEAPONS.map(function (w) { return wam[w.id] | 0; }); };          // the touch buttons show these numbers
     window.RunMilSurvival = {
         levels: LEVELS, setProgress: setProgress, toast: toast, state: function () { return me; }, players: function () { return PL; }, setHp: function (i) { setHp(PL[i]); }, setEn: function (i, v) { PL[i].en = v; setEn(PL[i]); }, spikes: function () { return spk; }, levelClear: function () { levelClear(); }, mode: function () { return MODE; }, cam: function () { return cam; }, start: startLevel,
         monsters: function () { return mons; }, pickups: function () { return pks; }, addPk: addPk, applyPU: applyPU, fxState: function () { return S.f; },  wave: function () { return wv; }, spawn: function (t) { return spawn(t); }, hurt: function (n) { hurtPlayer({ d: { dmg: n || 10 }, x: me.x + 10 }); },
