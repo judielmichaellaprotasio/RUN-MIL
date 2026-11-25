@@ -8,17 +8,19 @@
     const H = {};
     function emit(t, a) { (H[t] || []).slice().forEach(function (f) { try { f(a); } catch (e) { if (window.console) console.error(e); } }); }
     const TEST = /[?&]nettest=1/.test(location.search);
+    // the game page runs inside a frame of the menu: the Android bridge only answers the TOP window, so always talk to its Capacitor
+    function CAP() { try { if (window.top && window.top !== window && window.top.Capacitor) return window.top.Capacitor; } catch (e) { /* other origin */ } return window.Capacitor; }
     function plug() {
-        const C = window.Capacitor; if (!C) return null;
+        const C = CAP(); if (!C) return null;
         try { return (C.Plugins && C.Plugins.RunMilNearby) || (C.registerPlugin ? C.registerPlugin("RunMilNearby") : null); } catch (e) { return null; }
     }
-    const NATIVE = !!(window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform() && plug()) && !TEST;
+    const NATIVE = !!(CAP() && CAP().isNativePlatform && CAP().isNativePlatform() && plug()) && !TEST;
     const NET = { role: "", peer: null, open: false, handles: [] };
 
     // ---------- Android: Bluetooth (Google Nearby Connections: finds the other phone, connects over Bluetooth, moves to Wi-Fi Direct by itself for speed) ----------
-    function haveNative() { try { const C = window.Capacitor; if (C && C.PluginHeaders && C.PluginHeaders.length !== undefined) return C.PluginHeaders.some(function (h) { return h && h.name === "RunMilNearby"; }); return !!(C && C.Plugins && C.Plugins.RunMilNearby); } catch (e) { return false; } }
+    function haveNative() { try { const C = CAP(); if (C && C.PluginHeaders && C.PluginHeaders.length !== undefined) return C.PluginHeaders.some(function (h) { return h && h.name === "RunMilNearby"; }); return !!(C && C.Plugins && C.Plugins.RunMilNearby); } catch (e) { return false; } }
     function lan(method, args) {                       // call a plugin method; if the JS proxy has no such method, go straight to the native bridge
-        const P = plug(), C = window.Capacitor;
+        const P = plug(), C = CAP();
         if (P && typeof P[method] === "function") return Promise.resolve(P[method](args));
         if (C && typeof C.nativePromise === "function") return C.nativePromise("RunMilNearby", method, args || {});
         return Promise.reject(new Error("no way to call " + method));
@@ -69,7 +71,7 @@
 
     window.RunMilNet = {
         available: function () { return NATIVE || TEST; },
-        diag: function () { try { const C = window.Capacitor || {}; return "bt-v1 | native=" + NATIVE + " | plugins=" + (C.PluginHeaders ? C.PluginHeaders.map(function (h) { return h.name; }).join(",") : "n/a") + " | have=" + haveNative() + " | step=" + (NET.step || "-"); } catch (e) { return "diag failed"; } },
+        diag: function () { try { const C = CAP() || {}; return "bt-v2 | top=" + (window.top !== window) + "  | native=" + NATIVE + " | plugins=" + (C.PluginHeaders ? C.PluginHeaders.map(function (h) { return h.name; }).join(",") : "n/a") + " | have=" + haveNative() + " | step=" + (NET.step || "-"); } catch (e) { return "diag failed"; } },
         native: NATIVE,
         isOpen: function () { return NET.open; },
         role: function () { return NET.role; },

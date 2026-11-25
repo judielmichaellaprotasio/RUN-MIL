@@ -27,6 +27,12 @@ const titleScreen = document.getElementById("title-screen");
 const titleVideo = document.getElementById("title-video");
 
 const mainMenu = document.getElementById("main-menu");
+// no grey "play" picture while a video loads: a video stays invisible until it really plays
+[loadingVideo, titleVideo].forEach(function (v) {
+    v.controls = false; v.style.opacity = "0";
+    v.setAttribute("poster", "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7");
+    v.addEventListener("playing", function () { v.style.opacity = "1"; });
+});
 
 // ---- start gate: first click / key enters fullscreen, then the loading video starts ----
 const startGate = document.getElementById("start-gate");
