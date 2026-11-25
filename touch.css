@@ -10,10 +10,15 @@ html.has-touch, html.has-touch body { -webkit-user-select: none; user-select: no
 #tc .tc-w .tb { position: static; width: 10vmin; height: 10vmin; font-size: 4.8vmin; }
 #tc .tc-w .tb.v { font-size: 3.4vmin; }
 #tc .tc-w .tb small { font-size: 1.7vmin; }
-/* movement: one row (left / right, then up / down lane) under the weapon slots */
-#tc .tc-dp { position: absolute; left: 2vmin; bottom: 2vmin; display: flex; gap: 1.4vmin; pointer-events: none; }
-#tc .tc-dp .tb { position: static; width: 12vmin; height: 12vmin; border-radius: 2.6vmin; font-size: 5.4vmin; }
-#tc .tc-dp .r { margin-right: 3vmin; }
+/* movement: a cross (plus-shaped) pad on the left - left / right run, up / down change lane */
+#tc .tc-dp { position: absolute; left: 3vmin; bottom: 3vmin; width: 34vmin; height: 34vmin; pointer-events: auto; touch-action: none; }
+#tc .tc-dp i { position: absolute; width: 33.4%; height: 33.4%; display: flex; align-items: center; justify-content: center; font-style: normal; font-size: 6vmin; color: #fff; background: rgba(12, 20, 70, .55); border: .5vmin solid rgba(120, 150, 255, .8); box-shadow: 0 .6vmin 2vmin rgba(0, 0, 0, .4); pointer-events: none; }
+#tc .tc-dp .u { left: 33.3%; top: 0; border-radius: 2.4vmin 2.4vmin 0 0; }
+#tc .tc-dp .d { left: 33.3%; bottom: 0; border-radius: 0 0 2.4vmin 2.4vmin; }
+#tc .tc-dp .l { left: 0; top: 33.3%; border-radius: 2.4vmin 0 0 2.4vmin; }
+#tc .tc-dp .r { right: 0; top: 33.3%; border-radius: 0 2.4vmin 2.4vmin 0; }
+#tc .tc-dp .c { left: 33.3%; top: 33.3%; border-radius: 0; background: rgba(12, 20, 70, .75); }
+#tc .tc-dp i.on { background: rgba(255, 210, 74, .9); color: #111; }
 html.has-touch #keys { display: none; }
 /* actions */
 #tc .tc-ac { position: absolute; right: 3vmin; bottom: 3vmin; width: 52vmin; height: 40vmin; pointer-events: none; }

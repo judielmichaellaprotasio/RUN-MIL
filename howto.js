@@ -280,7 +280,9 @@
         keyRow(["1", "2", "3", "4"], "SHOP WEAPONS", "Use the weapons you bought in the shop."),
         keyRow(["B"], "AABB VISION", "Turns the AABB view on or off: the invisible boxes, the x and y axis bars, and the COLLISION! text with its colors."),
         keyRow(["ESC"], "PAUSE", "Pause the fight.")
-    ].join("");
+    ].concat(window.RUNMIL_DUO && RUNMIL_DUO.enabled ? [
+        keyRow(["2 PLAYERS"], "WEB VERSION ONLY", "Clear Level 1, 2 or 3 to unlock a heroine, then pick 2 PLAYERS on the level screen. <b>Player 1:</b> A D W S move, SPACE jump, C crouch, R punch, F kick, E special, number row 1-4 weapons. <b>Player 2:</b> arrow keys move, M jump, O crouch, P punch, K kick, L special, number pad 1-4 weapons.")
+    ] : []).join("");
 
     // ---------- the full HOW TO PLAY overlay ----------
     let ov = null, panes = {}, curTab = "endless", loopOn = false, lastT = 0;
@@ -373,6 +375,16 @@
             ],
             keys: "<b>SPACE</b> jump &bull; <b>C</b> duck &bull; <b>P</b> punch &bull; <b>K</b> kick &bull; <b>1-4</b> weapons &bull; <b>B</b> AABB vision &bull; <b>ESC</b> pause"
         },
+        versus: {
+            title: "GAME MECHANICS - 1 VS 1",
+            items: [
+                ["GOAL", "Two players: one keyboard, or <b>two phones</b> linked by Bluetooth in the Android app. Pick a fighter each and win <b>more rounds</b> than your rival over <b>3 rounds</b>. The winner gets the trophy screen."],
+                ["ROUNDS", "A round lasts <b>60 seconds</b>. Win it by a <b>K.O.</b>, or by having more HP when time runs out. Equal HP is a draw. If the 3 rounds end level, a <b>sudden-death</b> round decides."],
+                ["HP AND EN", "Each fighter has their own <b>HP</b> and <b>EN</b>. EN fills as you land hits (and a little when you are hit). When it is full, press your <b>special</b> key."],
+                ["DODGING", "<b>Duck</b> to slip under a punch (kicks still hit you). <b>Jump</b> to clear a kick or a shockwave. Use <b>W / S</b> (or the up and down arrows) to change lane: attacks only hit in <b>your lane</b>."]
+            ],
+            keys: "<b>P1:</b> <b>A D W S</b> move &bull; <b>SPACE</b> jump &bull; <b>C</b> duck &bull; <b>R</b> punch &bull; <b>F</b> kick &bull; <b>E</b> special<br><b>P2:</b> <b>Arrows</b> move &bull; <b>M</b> jump &bull; <b>O</b> duck &bull; <b>P</b> punch &bull; <b>K</b> kick &bull; <b>L</b> special<br><b>B</b> AABB vision &bull; <b>ESC</b> pause"
+        },
         survival: {
             title: "GAME MECHANICS - MONSTER SURVIVAL",
             items: [
@@ -390,8 +402,8 @@
         '<div class="tl"><span class="sw l">NO<br>(lane)</span><p>In Monster Survival, <b>NO (lane)</b> means the monster is on another lane (W / S), so it cannot touch you even if the boxes line up on screen.</p></div>' +
         '<div class="tl"><span class="sw l">COLL.</span><p>Your punch, kick and weapons have their own boxes. So <b>COLLISION!</b> can appear for an attack that lands while the label still says <b>NO</b>, because the label only compares your body.</p></div>';
     const LABEL_SHORT = '<div class="tl"><span class="sw l">x OK<br>y OK</span><p><b>Labels</b> under each box = your body vs that box: <b>OK</b> = they overlap on that axis, <b>NO</b> = a gap. Both OK = the box turns solid red = collision. (Attacks have their own boxes, so COLLISION! can show while a label says NO. HOW TO PLAY explains more.)</p></div>';
-    RMX.mechanics = function (mode, cb) {
-        try { if (localStorage.getItem("runmil_mech_off") === "1") { if (cb) cb(); return; } } catch (e) { /* storage blocked */ }
+    RMX.mechanics = function (mode, cb, force) {
+        try { if (!force && localStorage.getItem("runmil_mech_off") === "1") { if (cb) cb(); return; } } catch (e) { /* storage blocked */ }
         const M = MECH[mode] || MECH.endless;
         if (mechEl) mechEl.remove();
         mechEl = h("div", "rmx-mech"); mechEl.setAttribute("role", "dialog");
@@ -411,6 +423,34 @@
             '<div class="tl"><span class="sw d"></span><p>The colors on the previous page, and everything here, show only while the AABB view is <b>ON</b>. Press <b>B</b> again to turn it off. <b>Dashed outlines</b> are the invisible boxes. The <b>bars</b> along the bottom (x axis) and the right side (y axis) are the boxes\' shadows. Where the A and B shadows cross, the bar turns yellow.</p></div>' + LABEL_HTML + "</div>");
         view.style.gridTemplateColumns = "1fr"; p4.appendChild(view); pages.push(p4);
         const p5 = h("div", "rmx-mech-grid"), keys = h("div", "rmx-m wide big", "<div><h4>CONTROLS</h4><p>" + M.keys + "</p></div>"); keys.style.gridTemplateColumns = "1fr"; p5.appendChild(keys); pages.push(p5);
+        if (window.RUNMIL_DUO && RUNMIL_DUO.enabled && /SURVIVAL/i.test(M.title)) {                  // 2 players: web version only
+            titles.push("2 PLAYERS");
+            const p6 = h("div", "rmx-mech-grid");
+            [["UNLOCKING HEROINES", "Clear <b>Level 1, 2 or 3</b> to unlock one heroine each. Then choose <b>2 PLAYERS</b> on the level screen and pick who plays as Player 2 with <b>PLAYER 2 CHARACTERS</b>."],
+             ["PLAYER 1 (YOU)", "<b>A D W S</b> move &bull; <b>SPACE</b> jump &bull; <b>C</b> crouch &bull; <b>R</b> punch &bull; <b>F</b> kick &bull; <b>E</b> special &bull; <b>1-4</b> weapons (the number row)."],
+             ["PLAYER 2 (HEROINE)", "<b>Arrow keys</b> move &bull; <b>M</b> jump &bull; <b>O</b> crouch &bull; <b>P</b> punch &bull; <b>K</b> kick &bull; <b>L</b> special &bull; <b>1-4</b> weapons (the number pad)."],
+             ["TEAM RULES", "You share the waves, coins, EN bar and weapon ammo. Each player has their own HP. A knocked-out partner comes back between waves. The game ends when both are down."]
+            ].forEach(function (it) { p6.appendChild(h("div", "rmx-m big", "<h4>" + it[0] + "</h4><p>" + it[1] + "</p>")); });
+            pages.push(p6);
+        }
+        if (mode === "versus") {                                                                     // the four special abilities
+            titles.push("SPECIAL ABILITIES");
+            const p7 = h("div", "rmx-mech-grid");
+            [["MIL: SHOCKWAVE", "A wide ring of force rolls out along the ground. <b>Jump over it</b> to be safe. Needs a full EN bar."],
+             ["SHAI: LAND POWER", "The earth erupts around her in <b>every direction</b>, and jumping does not help. Needs a full EN bar."],
+             ["MICHA: FLAMES", "A stream of fire from her hand in the direction she faces. Each press costs only <b>10 EN</b>, so hold your nerve and spam it."],
+             ["MARV: WIND BLAST", "A big whirlwind rolls forward and <b>throws</b> the other fighter back. Needs a full EN bar."]
+            ].forEach(function (it) { p7.appendChild(h("div", "rmx-m big", "<h4>" + it[0] + "</h4><p>" + it[1] + "</p>")); });
+            pages.push(p7);
+            titles.push("TWO PHONES");
+            const p8 = h("div", "rmx-mech-grid");
+            [["LINK THE PHONES", "In the Android app, open <b>1 VS 1</b>. One phone taps <b>HOST A GAME</b> (it shows a name like MIL-482), the other taps <b>JOIN A GAME</b> and picks that name. Turn <b>Bluetooth</b> on and allow the permissions."],
+             ["PICK AND FIGHT", "Each player picks their <b>own fighter</b> on their own phone. The host picks the arena and presses <b>FIGHT</b>. A heroine can be used by a friend even if you have not unlocked her yet."],
+             ["TOUCH CONTROLS", "A <b>cross pad</b> on the left (slide your thumb: left / right run, up / down change lane) and the <b>JUMP, PUNCH, KICK, SPECIAL and DUCK</b> buttons on the right."],
+             ["STAY CLOSE", "Keep the phones within a few metres. If the link drops, the match ends and you can connect again from the same screen. Pause is off while playing over the link."]
+            ].forEach(function (it) { p8.appendChild(h("div", "rmx-m big", "<h4>" + it[0] + "</h4><p>" + it[1] + "</p>")); });
+            pages.push(p8);
+        }
         const stage = h("div", "rmx-stage"), dots = h("div", "rmx-dots"), ptitle = h("div", "rmx-ptitle");
         let cur = 0;
         pages.forEach(function (p, n) { p.hidden = n !== 0; stage.appendChild(p); const d = h("button", "dot"); d.type = "button"; d.setAttribute("aria-label", titles[n]); d.addEventListener("click", function () { goPage(n); }); dots.appendChild(d); });
@@ -539,7 +579,26 @@
         g.fillText("X AXIS (left - right)", 8, vh - 8); g.save(); g.translate(vw - 8, 12); g.rotate(Math.PI / 2); g.fillText("Y AXIS (up - down)", 0, 0); g.restore();
         g.textAlign = "center"; g.textBaseline = "bottom";
         vBox(g, sA, "#4de8ff", 2.5, [], "rgba(77,232,255,.12)");
-        g.lineJoin = "round"; g.lineWidth = 4; g.strokeStyle = "rgba(5,8,24,.95)"; g.strokeText("YOU  (A)", sA.x + sA.w / 2, sA.y - 3); g.fillStyle = "#4de8ff"; g.fillText("YOU  (A)", sA.x + sA.w / 2, sA.y - 3);
+        g.lineJoin = "round"; g.lineWidth = 4; g.strokeStyle = "rgba(5,8,24,.95)"; const yl = VIS.two ? "P1  (A)" : "YOU  (A)"; g.strokeText(yl, sA.x + sA.w / 2, sA.y - 3); g.fillStyle = "#4de8ff"; g.fillText(yl, sA.x + sA.w / 2, sA.y - 3);
+        g.restore();
+    };
+    // the other player(s): their box, the guide lines and the verdict against every monster box (same colours as the main player's X-RAY, in pink)
+    VIS.xrayP = function (g, A, list, label, camx, camy, vw, vh) {
+        if (VIS.mode !== 1) return;
+        const sA = { x: A.x - camx, y: A.y - camy, w: A.w, h: A.h };
+        g.save(); g.font = "bold 15px Consolas, monospace"; g.textAlign = "center"; g.textBaseline = "bottom";
+        list.forEach(function (o) {
+            const B = { x: o.B.x - camx, y: o.B.y - camy, w: o.B.w, h: o.B.h };
+            if (B.x > vw + 40 || B.x + B.w < -40 || Math.abs((B.x + B.w / 2) - (sA.x + sA.w / 2)) > 330) return;
+            const xo = A.x < o.B.x + o.B.w && A.x + A.w > o.B.x, yo = A.y < o.B.y + o.B.h && A.y + A.h > o.B.y && !o.far;
+            if (xo && yo) vBox(g, B, "#ff4d5e", 3, [], "rgba(255,77,94,.28)");
+            else if (xo || yo) { vBox(g, B, "#ffc84a", 1.5, [5, 4]); g.textBaseline = "top"; g.lineJoin = "round"; g.lineWidth = 4; g.strokeStyle = "rgba(5,8,24,.95)"; g.fillStyle = "#fff"; const t = "x " + (xo ? "OK" : "NO") + "  y " + (o.far ? "NO (lane)" : yo ? "OK" : "NO"); g.strokeText(t, B.x + B.w / 2, B.y + B.h + 2); g.fillText(t, B.x + B.w / 2, B.y + B.h + 2); g.textBaseline = "bottom"; }
+        });
+        g.lineWidth = 1; g.setLineDash([3, 5]); g.strokeStyle = "rgba(255,120,200,.6)"; g.beginPath();
+        [sA.x, sA.x + sA.w].forEach(function (x) { g.moveTo(x, 0); g.lineTo(x, vh); }); [sA.y, sA.y + sA.h].forEach(function (y) { g.moveTo(0, y); g.lineTo(vw, y); }); g.stroke(); g.setLineDash([]);
+        g.fillStyle = "#ff78c8"; g.fillRect(sA.x, vh - 26, sA.w, 7); g.fillRect(vw - 26, sA.y, 7, sA.h);
+        vBox(g, sA, "#ff78c8", 2.5, [], "rgba(255,120,200,.14)");
+        g.lineJoin = "round"; g.lineWidth = 4; g.strokeStyle = "rgba(5,8,24,.95)"; g.strokeText(label, sA.x + sA.w / 2, sA.y - 3); g.fillStyle = "#ff78c8"; g.fillText(label, sA.x + sA.w / 2, sA.y - 3);
         g.restore();
     };
     VIS.key = function (e) { if (e.code === "KeyB" && !e.repeat && !e.ctrlKey && !e.metaKey) { VIS.cycle(); return true; } return false; };

@@ -10,9 +10,12 @@
 
     <title>RUN MIL!</title>
 
-    <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="howto.css">
-    <script src="perf.js"></script>
+    <link rel="stylesheet" href="style.css?v=20261126a">
+    <link rel="stylesheet" href="menu-art.css?v=20261126a">
+    <link rel="stylesheet" href="modeinfo.css?v=20261126a">
+    <link rel="stylesheet" href="howto.css?v=20261126a">
+    <script src="perf.js?v=20261126a"></script>
+    <script src="duo.js?v=20261126a"></script>
 </head>
 
 <body>
@@ -46,9 +49,6 @@
     <div id="main-menu" class="screen hidden">
       <div class="menu-stage">
 
-        <h1 class="sr-only">RUN MIL! - Run. Survive. Escape.</h1>
-        <img class="logo" src="visuals/images/logo.png" alt="RUN MIL! Run. Survive. Escape.">
-
         <!-- PROFILE (top left) -->
         <div class="pnl profile" id="profile-btn">
             <div class="avatar"><canvas class="avatar-gif" id="avatar-img" width="180" height="180" role="img" aria-label="Your avatar"></canvas></div>
@@ -66,19 +66,29 @@
         <div class="pill gem-pill">
             <img src="visuals/images/icon-gem.png" alt="">
             <span id="gem-count">50</span>
+            <button class="plus" id="gem-plus" aria-label="Earn gems">+</button>
         </div>
 
-        <!-- ACHIEVEMENTS + SETTINGS (top right) -->
-        <button class="icon-btn achievements" id="achievements-btn">
-            <img src="visuals/images/icon-trophy.png" alt=""><span>ACHIEVEMENTS</span>
-            <i class="badge" id="ach-badge" hidden></i>
-        </button>
-        <button class="icon-btn howto" id="howto-btn" aria-label="How to play">
-            <span class="q">?</span><span>HOW TO<br>PLAY</span>
-        </button>
-        <button class="icon-btn settings" id="settings-btn">
-            <img src="visuals/images/icon-gear.png" alt=""><span>SETTINGS</span>
-        </button>
+        <!-- TOP RIGHT: ACHIEVEMENTS, HEROINES, LOCATIONS, SETTINGS -->
+        <div class="topbtns">
+            <button class="icon-btn achievements" id="achievements-btn">
+                <img src="visuals/images/icon-trophy.png" alt=""><span>ACHIEVEMENTS</span>
+                <i class="badge" id="ach-badge" hidden></i>
+            </button>
+            <button class="icon-btn heroes" id="heroes-btn" hidden>
+                <svg class="ic" viewBox="0 0 100 100" aria-hidden="true"><g fill="#3b4166" stroke="#aeb6e6" stroke-width="3" stroke-linejoin="round"><circle cx="50" cy="30" r="17"/><path d="M33 26c2-14 12-19 20-18 10 1 17 9 14 22-4-7-9-10-16-10-8 0-14 2-18 6z"/><path d="M22 96c0-22 12-38 28-38s28 16 28 38z"/></g><text x="50" y="86" text-anchor="middle" font-family="Teko, Impact, sans-serif" font-weight="700" font-size="40" fill="#fff" stroke="#10163c" stroke-width="3" paint-order="stroke">?</text></svg><span>HEROINES</span>
+            </button>
+            <button class="icon-btn howto" id="howto-btn" aria-label="How to play">
+                <span class="q">?</span><span>HOW TO PLAY</span>
+            </button>
+            <button class="icon-btn settings" id="settings-btn">
+                <img src="visuals/images/icon-gear.png" alt=""><span>SETTINGS</span>
+            </button>
+        </div>
+
+        <!-- LOGO -->
+        <h1 class="sr-only">RUN MIL! - Run. Survive. Escape.</h1>
+        <img class="logo" src="visuals/images/logo.png" alt="RUN MIL! Run. Survive. Escape.">
 
         <!-- LEFT MENU -->
         <button class="menu-btn mb1" id="customize-btn">
@@ -87,13 +97,21 @@
         <button class="menu-btn mb2" id="shop-btn">
             <img src="visuals/images/icon-shield.png" alt=""><b>EQUIPMENT<br>SHOP</b><em>&#10095;</em>
         </button>
-
         <button class="menu-btn mb3" id="collect-btn">
             <span class="mi">&#128214;</span><b>COLLECTION<br>BOOK</b><em>&#10095;</em>
         </button>
 
         <!-- CENTRE CHARACTER (animated GIF) -->
         <canvas class="hero" id="hero" width="560" height="560" role="img" aria-label="Player character running"></canvas>
+
+        <!-- GAME MODES: pick one, then press PLAY -->
+        <button class="mode-card mode-endless" id="mode-endless" data-mode="endless" aria-pressed="false"><span class="sr-only">ENDLESS RUN</span></button>
+        <button class="mode-card mode-survival" id="mode-survival" data-mode="survival" aria-pressed="false"><span class="sr-only">MONSTER SURVIVAL</span></button>
+
+        <!-- PLAY -->
+        <div class="play-wrap">
+            <button id="play-btn" class="play-button" aria-label="Play"><span class="sr-only">PLAY</span></button>
+        </div>
 
         <!-- LOCATION BOARD (right) -->
         <aside class="board">
@@ -116,12 +134,7 @@
             <div class="m-reward"><img src="visuals/images/icon-coin.png" alt=""><b>+100</b></div>
         </button>
 
-        <!-- PLAY -->
-        <div class="play-wrap">
-            <button id="play-btn" class="play-button"><i></i><span>PLAY</span></button>
-        </div>
-
-        <!-- PLAYER STATS (bottom right) -->
+        <!-- PLAYER STATS (right) -->
         <button class="pnl stats" id="stats-btn" aria-label="Open player profile">
             <img class="crown" src="visuals/images/icon-crown.png" alt="">
             <div class="s-title"><img src="visuals/images/icon-chart.png" alt="">PLAYER STATS</div>
@@ -131,8 +144,8 @@
             <div class="s-row"><span>Total Play Time</span><b id="stat-time">: 0h 0m</b></div>
         </button>
 
-        <!-- MODE BANNER -->
-        <div class="banner"><i></i><span>ENDLESS RUN &bull; MONSTER SURVIVAL</span><i></i></div>
+        <!-- BOTTOM: where you are, help, tagline -->
+        <div class="keep">Keep Running, Mil!</div>
 
         <div class="toast" id="menu-toast"></div>
       </div>
@@ -146,16 +159,17 @@
 
     <div id="rotate-hint"><div>&#8635;<br>Please rotate your device<br>to landscape</div></div>
 
-    <script src="assets.js"></script>
-    <script src="visuals/audio/sounds.js"></script>
-    <script src="audio.js"></script>
-    <script src="characters.js"></script>
-    <script src="character.js"></script>
-    <script src="hero.js"></script>
-    <script src="script.js"></script>
-    <script src="collect.js"></script>
-    <script src="screens.js"></script>
-    <script src="howto.js"></script>
+    <script src="assets.js?v=20261126a"></script>
+    <script src="visuals/audio/sounds.js?v=20261126a"></script>
+    <script src="audio.js?v=20261126a"></script>
+    <script src="characters.js?v=20261126a"></script>
+    <script src="character.js?v=20261126a"></script>
+    <script src="hero.js?v=20261126a"></script>
+    <script src="script.js?v=20261126a"></script>
+    <script src="collect.js?v=20261126a"></script>
+    <script src="screens.js?v=20261126a"></script>
+    <script src="modeinfo.js?v=20261126a"></script>
+    <script src="howto.js?v=20261126a"></script>
 
 </body>
 
