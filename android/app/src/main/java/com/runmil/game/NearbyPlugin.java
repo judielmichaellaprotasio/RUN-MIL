@@ -50,6 +50,7 @@ public class NearbyPlugin extends Plugin {
     private String myName = "";
     private boolean advertising, discovering;
     private final Map<String, String> pendingNames = new HashMap<>();
+    private final java.util.Set<Long> inflight = java.util.Collections.synchronizedSet(new java.util.HashSet<Long>());
     private PluginCall waitingForPermission;
     private String waitRole;
 
@@ -134,7 +135,11 @@ public class NearbyPlugin extends Plugin {
     public void send(PluginCall call) {
         String data = call.getString("data");
         if (peer == null || data == null) { call.resolve(); return; }
-        client.sendPayload(peer, Payload.fromBytes(data.getBytes(StandardCharsets.UTF_8)));
+        boolean lossy = Boolean.TRUE.equals(call.getBoolean("lossy", false));
+        if (lossy && inflight.size() >= 2) { call.resolve(); return; }          // the link is still busy: drop this picture of the game, the next one is newer anyway (no growing lag)
+        Payload pl = Payload.fromBytes(data.getBytes(StandardCharsets.UTF_8));
+        inflight.add(pl.getId());
+        client.sendPayload(peer, pl).addOnFailureListener(e -> inflight.remove(pl.getId()));
         call.resolve();
     }
 
@@ -153,6 +158,7 @@ public class NearbyPlugin extends Plugin {
             peer = null;
         }
         pendingNames.clear();
+        inflight.clear();
     }
 
     @Override
@@ -220,6 +226,9 @@ public class NearbyPlugin extends Plugin {
         }
 
         @Override
-        public void onPayloadTransferUpdate(String id, PayloadTransferUpdate update) { }
+        public void onPayloadTransferUpdate(String id, PayloadTransferUpdate update) {
+            int st = update.getStatus();
+            if (st == PayloadTransferUpdate.Status.SUCCESS || st == PayloadTransferUpdate.Status.FAILURE || st == PayloadTransferUpdate.Status.CANCELED) inflight.remove(update.getPayloadId());
+        }
     };
 }
