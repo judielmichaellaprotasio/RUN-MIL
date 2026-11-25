@@ -13,11 +13,14 @@
         try { return (C.Plugins && C.Plugins.RunMilLan) || (C.registerPlugin ? C.registerPlugin("RunMilLan") : null); } catch (e) { return null; }
     }
     const NATIVE = !!(window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform() && plug()) && !TEST;
+    function haveNative() { try { const C = window.Capacitor; return !!(C && (C.isPluginAvailable ? C.isPluginAvailable("RunMilLan") : (C.Plugins && C.Plugins.RunMilLan))); } catch (e) { return false; } }
     const NET = { role: "", peer: null, open: false, handles: [] };
 
     // ---------- Android: the host's hotspot (Wi-Fi).  The HOST phone turns its Hotspot on and listens; the other phone joins that Wi-Fi and connects to the host ----------
     function nativeStart(role, ip) {
         const P = plug(); NET.role = role;
+        if (!haveNative()) { emit("error", { fatal: 1, message: "This app was built without the phone-link part (LanPlugin). Upload the Android files from wifi_android.zip, wait for Build Android APK to finish, then install the NEW apk." }); return Promise.resolve(); }
+        try {
         if (!NET.handles.length) {
             ["connected", "message", "closed", "failure"].forEach(function (ev) {
                 const h = P.addListener(ev, function (d) {
@@ -30,6 +33,7 @@
                 NET.handles.push(h);
             });
         }
+        } catch (e) { emit("error", { fatal: 1, message: "Phone link failed to start: " + (e && e.message || e) }); return Promise.resolve(); }
         const call = role === "host" ? P.host().then(function (r) { emit("hosting", { ips: (r && r.ips) || [] }); }) : P.join({ ip: ip || "" });
         return call.catch(function (e) { emit("error", { message: (e && (e.message || e.errorMessage)) || "Could not start" }); });
     }

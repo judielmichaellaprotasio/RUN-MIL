@@ -42,6 +42,7 @@
         $("nlb-msg").textContent = NATIVE ? "Switch ON your phone's Hotspot (Settings > Hotspot) and tell your friend to join it." : "Waiting for your friend...";
         $("nlb-wsub").textContent = NATIVE ? "Your friend joins your hotspot Wi-Fi, then taps JOIN A GAME. Waiting for them..." : "Your friend picks this name.";
         NT.host($("nlb-code").textContent);
+        if (NATIVE) setTimeout(function () { if (state === "host" && $("nlb-code").textContent === "...") $("nlb-msg").textContent = "Hosting did not start. Install the newest app version (APK) on this phone, then try again."; }, 4000);
     });
     $("nlb-join").addEventListener("click", function () {
         Object.keys(found).forEach(function (k) { found[k].remove(); delete found[k]; }); setState("join");
@@ -66,6 +67,6 @@
     });
     NT.on("lost", function (d) { const b = found[d.id]; if (b) { b.remove(); delete found[d.id]; } if (!NATIVE && !Object.keys(found).length) $("nlb-none").hidden = false; });
     NT.on("open", function (d) { if (!root.hidden) { hide(); if (opts.onOpen) opts.onOpen(d.role); } });
-    NT.on("error", function (d) { if (root.hidden) return; setState(""); $("nlb-msg").textContent = (d && d.message ? d.message : "Could not connect") + (NATIVE ? ". Check the hotspot and that your friend tapped HOST A GAME first." : ""); });
+    NT.on("error", function (d) { if (root.hidden) return; setState(""); $("nlb-msg").textContent = (d && d.message ? d.message : "Could not connect") + (NATIVE && !(d && d.fatal) ? ". Check the hotspot and that your friend tapped HOST A GAME first." : ""); });
     window.RunMilLobby = { show: show, hide: hide };
 })();
