@@ -11,12 +11,24 @@ import com.getcapacitor.BridgeActivity;
 public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
-        registerPlugin(LanPlugin.class);                                           // the two-phone link over the host's hotspot (1 VS 1, 2 player Monster Survival)
+        registerPlugin(NearbyPlugin.class);                                        // the two-phone link for 1 VS 1 (Bluetooth / Nearby)
         super.onCreate(savedInstanceState);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);      // the screen stays on while you play
         WebSettings s = getBridge().getWebView().getSettings();
         s.setMediaPlaybackRequiresUserGesture(false);                              // music / sound can start without an extra tap
+        s.setSupportZoom(false);                                                   // no pinch zoom, no zoom buttons: the picture is fixed
+        s.setBuiltInZoomControls(false);
+        s.setDisplayZoomControls(false);
+        getBridge().getWebView().setOverScrollMode(View.OVER_SCROLL_NEVER);
+        getBridge().getWebView().setVerticalScrollBarEnabled(false);
+        getBridge().getWebView().setHorizontalScrollBarEnabled(false);
         hideBars();
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        NearbyPlugin.onPermissionResult(requestCode, grantResults);                // the answer to the Bluetooth / nearby permission dialog
     }
 
     @Override
