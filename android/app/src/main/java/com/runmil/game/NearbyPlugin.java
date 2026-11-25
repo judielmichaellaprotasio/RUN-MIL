@@ -66,13 +66,10 @@ public class NearbyPlugin extends Plugin {
             p.add(Manifest.permission.BLUETOOTH_ADVERTISE);
             p.add(Manifest.permission.BLUETOOTH_CONNECT);
             p.add(Manifest.permission.BLUETOOTH_SCAN);
-            if (Build.VERSION.SDK_INT <= 31) p.add(Manifest.permission.ACCESS_FINE_LOCATION);
             if (Build.VERSION.SDK_INT >= 33) p.add("android.permission.NEARBY_WIFI_DEVICES");
-        } else if (Build.VERSION.SDK_INT >= 29) {
-            p.add(Manifest.permission.ACCESS_FINE_LOCATION);
-        } else {
-            p.add(Manifest.permission.ACCESS_COARSE_LOCATION);
         }
+        p.add(Manifest.permission.ACCESS_COARSE_LOCATION);          // Nearby asks for location on every Android version
+        p.add(Manifest.permission.ACCESS_FINE_LOCATION);
         return p.toArray(new String[0]);
     }
 
@@ -92,7 +89,7 @@ public class NearbyPlugin extends Plugin {
         pl.waitingForPermission = null;
         if (call == null) return;
         boolean ok = results.length > 0;
-        for (int r : results) if (r != PackageManager.PERMISSION_GRANTED) ok = false;
+        for (String m : pl.missing()) if (!Manifest.permission.ACCESS_FINE_LOCATION.equals(m)) ok = false;   // "approximate location" is enough
         if (ok) pl.begin(call, pl.waitRole);
         else call.reject("Bluetooth / nearby permission was not allowed");
     }

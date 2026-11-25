@@ -16,6 +16,9 @@ public class MainActivity extends BridgeActivity {
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);      // the screen stays on while you play
         WebSettings s = getBridge().getWebView().getSettings();
         s.setMediaPlaybackRequiresUserGesture(false);                              // music / sound can start without an extra tap
+        s.setMinimumFontSize(1);                                                   // small menu text is not made bigger (it used to spill out of the buttons)
+        s.setMinimumLogicalFontSize(1);
+        s.setTextZoom(100);
         s.setSupportZoom(false);                                                   // no pinch zoom, no zoom buttons: the picture is fixed
         s.setBuiltInZoomControls(false);
         s.setDisplayZoomControls(false);
