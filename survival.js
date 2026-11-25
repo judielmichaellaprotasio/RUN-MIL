@@ -14,7 +14,8 @@
     const cv = $("game"), ctx = cv.getContext("2d"), stage = $("stage"), bgimg = $("bgimg");
     const C = window.RunMilCharacter;
     const AUD = function (n, a, b) { try { if (window.RunMilAudio) window.RunMilAudio[n](a, b); } catch (e) { /* audio is optional */ } };
-    const SFX = function (n, a) { try { if (window.RunMilAudio) window.RunMilAudio.sfx(n, a); } catch (e) { /* audio is optional */ } };
+    const NQ = { on: false, host: false, q: [] };                 // two-device play: what the host sees and hears is queued here and sent to the guest
+    const SFX = function (n, a) { if (NQ.on && NQ.host) NQ.q.push(["s", n, a === undefined ? 0 : a]); try { if (window.RunMilAudio) window.RunMilAudio.sfx(n, a); } catch (e) { /* audio is optional */ } };
 
     // ---------- levels ----------
     // w / h: size of the whole level in game units.  band: top / bottom of the pathway (where the FEET may stand) as a share of h.
@@ -220,13 +221,14 @@
         return out;
     }
     function makePlayers() {
-        const h = MODE === 2 ? curHeroine() : null, l = [newPlayer(0, SV)];
+        const h = NQ.on ? NQ.hero : MODE === 2 ? curHeroine() : null, l = [newPlayer(0, SV)];
         if (h) { const p2 = newPlayer(1, heroSheets(h)); p2.h = h; l.push(p2); }
         return l;
     }
 
     // ---------- level select ----------
     function showSelect() {
+        if (netSelect()) return;
         running = false; paused = false; ended = false;
         ["hud", "pause", "over", "clear"].forEach(function (id) { $(id).hidden = true; });
         $("select").hidden = false; bgimg.style.display = "none"; ctx.clearRect(0, 0, VW, VH);
@@ -293,6 +295,7 @@
         const b = e.target.closest(".lc"); if (!b) return;
         const n = +b.dataset.n;
         if (n > getProg().unlocked) { SFX("deny"); b.animate([{ transform: "translateX(-6px)" }, { transform: "translateX(6px)" }, { transform: "translateX(0)" }], { duration: 220 }); return; }
+        if (NQ.on && NQ.host && !NQ.hero) { toast("WAITING FOR PLAYER 2...", 1500); return; }
         startLevel(n);
     });
     $("sel-back").addEventListener("click", goHome);
@@ -310,13 +313,13 @@
         $("wtext").textContent = "WAVE " + wave + " / " + WAVES + (wave === WAVES ? "  •  BOSS" : "");
         [].forEach.call($("wnodes").children, function (n, i) { n.classList.toggle("on", f >= (i + 1) / WAVES - 1e-6); });
     }
-    function toast(t, ms) { const el = $("toast"); el.textContent = t; el.classList.add("on"); clearTimeout(toast.t); toast.t = setTimeout(function () { el.classList.remove("on"); }, ms || 1800); }
+    function toast(t, ms) { if (NQ.on && NQ.host) NQ.q.push(["m", t, ms || 0]); const el = $("toast"); el.textContent = t; el.classList.add("on"); clearTimeout(toast.t); toast.t = setTimeout(function () { el.classList.remove("on"); }, ms || 1800); }
     function setHp(p) {
         p = p || me; const f = Math.max(0, p.hp) / HP_MAX, two = p.pid === 1;
         $(two ? "hpfill2" : "hpfill").style.width = f * 100 + "%"; $(two ? "hptxt2" : "hptxt").textContent = p.dead ? "DEAD" : Math.max(0, Math.ceil(p.hp)); $(two ? "hp2" : "hp").classList.toggle("low", f < 0.3 && !p.dead); $(two ? "hp2" : "hp").classList.toggle("dead", !!p.dead);
     }
     function startLevel(n) {
-        lv = LEVELS[n - 1]; MODE = DUO && duoSave().mode === 2 && curHeroine() ? 2 : 1; PL = makePlayers(); me = PL[0]; keys = me.keys; paused = false; ended = false; mons = []; fx = []; shake = 0; hitStop = 0; slowT = 0; pks = []; dis = []; ring = null; spk = []; flm = []; wnd = []; shots = []; wfx = []; wcd = me.wcd;
+        lv = LEVELS[n - 1]; MODE = NQ.on || (DUO && duoSave().mode === 2 && curHeroine()) ? 2 : 1; PL = makePlayers(); NQ.q = []; netStart(n); me = PL[0]; keys = me.keys; paused = false; ended = false; mons = []; fx = []; shake = 0; hitStop = 0; slowT = 0; pks = []; dis = []; ring = null; spk = []; flm = []; wnd = []; shots = []; wfx = []; wcd = me.wcd;
         S = { kills: 0, t: 0, hurt: 0, coins: 0, gems: 0, combo: 0, comboT: 0, best: 0, tgt: null, tgtT: 0, f: { shield: 0, rage: 0, lucky: 0, freeze: 0, magnet: 0, wind: 0 } };
         refreshAmmo(); $("hud").classList.toggle("duo", twoP()); $("hp2").hidden = !twoP(); if (window.RMX) RMX.vis.two = twoP(); $("keys").innerHTML = keyHint(); $("lcoin").textContent = 0; $("lgem").textContent = 0; $("combo").hidden = true; $("target").hidden = true; $("warn").classList.remove("on"); $("shock").hidden = true; clearTimeout(bossWarn.t); $("bw").hidden = true; PL.forEach(function (q) { setEn(q); }); setTimeout(drawPortrait, 60); setTimeout(drawPortrait, 600);
         $("select").hidden = true; ["pause", "over", "clear"].forEach(function (id) { $(id).hidden = true; }); $("hud").hidden = false; $("boss").hidden = true;
@@ -334,7 +337,7 @@
         const cx0 = PL.reduce(function (a, p) { return a + p.x; }, 0) / PL.length, cy0 = PL.reduce(function (a, p) { return a + p.y; }, 0) / PL.length;
         cam.x = Math.max(0, Math.min(lv.w - WW, cx0 - WW / 2)); cam.y = Math.max(0, Math.min(lv.h - WH, cy0 - WH * 0.7));
         resize();
-        wv = lv.waves ? { n: 0, st: "intro", t: 1.6, q: [], total: 1, killed: 0 } : null;                   // levels without monsters yet = free roam
+        wv = NQ.on && !NQ.host ? { n: 1, st: "run", t: 0, q: [], total: 1, killed: 0 } : lv.waves ? { n: 0, st: "intro", t: 1.6, q: [], total: 1, killed: 0 } : null;                   // levels without monsters yet = free roam
         if (lv.waves) toast("LEVEL " + lv.n, 1500); else toast("Monsters for this level are coming soon!", 2600);
 
         running = true; last = performance.now(); requestAnimationFrame(loop);
@@ -397,6 +400,8 @@
         KeyA: [0, "KeyA"], KeyD: [0, "KeyD"], KeyW: [0, "KeyW"], KeyS: [0, "KeyS"], KeyC: [0, "KeyC"], Space: [0, "Space"], KeyR: [0, "KeyP"], KeyF: [0, "KeyK"], KeyE: [0, "KeyL"],            // player 1
         ArrowLeft: [1, "KeyA"], ArrowRight: [1, "KeyD"], ArrowUp: [1, "KeyW"], ArrowDown: [1, "KeyS"], KeyO: [1, "KeyC"], KeyM: [1, "Space"], KeyP: [1, "KeyP"], KeyK: [1, "KeyK"], KeyL: [1, "KeyL"]   // player 2
     };
+    const KMN = Object.assign({}, KM1, { KeyR: [0, "KeyP"], KeyF: [0, "KeyK"], KeyE: [0, "KeyL"] });     // two devices: every phone / keyboard drives its own character
+    function KMAP() { return NQ.on ? KMN : twoP() ? KM2 : KM1; }
     function keyHint() {
         if (!twoP()) return '<b>A</b><b>D</b> run &bull; <b>W</b><b>S</b> up / down &bull; <b>SPACE</b> jump &bull; <b>C</b> duck &bull; <b>P</b> punch &bull; <b>K</b> kick &bull; <b>L</b> special &bull; <b>1</b>-<b>4</b> weapons &bull; <b>B</b> aabb';
         return '<div><i class="p1">P1</i> <b>A</b><b>D</b><b>W</b><b>S</b> move &bull; <b>SPACE</b> jump &bull; <b>C</b> duck &bull; <b>R</b> punch &bull; <b>F</b> kick &bull; <b>E</b> special &bull; <b>1-4</b> weapons</div>' +
@@ -406,7 +411,8 @@
         if (window.RMX && running && !ended && RMX.vis.key(e)) return;          // B = AABB vision
         if (e.code === "Escape") { if (running && !ended) { e.preventDefault(); togglePause(); } return; }
         if (!running || paused || ended) return;
-        const m = (twoP() ? KM2 : KM1)[e.code], wk = /^(Digit|Numpad)[1-4]$/.test(e.code);
+        if (NQ.on && !NQ.host) { const g = KMN[e.code], w = /^(Digit|Numpad)[1-4]$/.test(e.code); if (g || w) e.preventDefault(); if (e.repeat) return; if (g) nsend({ t: "k", c: g[1], d: 1 }); else if (w) nsend({ t: "k", c: "Digit" + e.code.slice(-1), d: 1 }); return; }
+        const m = KMAP()[e.code], wk = /^(Digit|Numpad)[1-4]$/.test(e.code);
         if (m || wk) e.preventDefault();
         if (e.repeat) return;
         if (m) {
@@ -414,12 +420,12 @@
             p.keys[m[1]] = true;
             as(p, function () { if (m[1] === "Space") jump(); else if (m[1] === "KeyP") attack("punch"); else if (m[1] === "KeyK") attack("kick"); else if (m[1] === "KeyL") special(); });
         } else if (wk) {                                                           // number row = player 1, number pad = player 2 (alone: both work for you)
-            const p = twoP() && e.code.slice(0, 6) === "Numpad" ? PL[1] : PL[0];
+            const p = !NQ.on && twoP() && e.code.slice(0, 6) === "Numpad" ? PL[1] : PL[0];
             as(p, function () { useWeapon(+e.code.slice(-1) - 1); });
         }
     });
-    addEventListener("keyup", function (e) { const m = (twoP() ? KM2 : KM1)[e.code]; if (m && PL[m[0]]) PL[m[0]].keys[m[1]] = false; });
-    addEventListener("blur", function () { resetKeys(); });
+    addEventListener("keyup", function (e) { if (NQ.on && !NQ.host) { const g = KMN[e.code]; if (g) nsend({ t: "k", c: g[1], d: 0 }); return; } const m = KMAP()[e.code]; if (m && PL[m[0]]) PL[m[0]].keys[m[1]] = false; });
+    addEventListener("blur", function () { if (NQ.on && !NQ.host) nsend({ t: "clr" }); resetKeys(); });
     function jump() { if (me.z <= 0 && !me.act && !keys.KeyC && !me.dead) { me.vz = JUMP_V; me.airT = 0; SFX("jump"); } }
     function attack(k) {
         if (me.act || me.z > 0 || me.duck || me.dead) return;
@@ -428,18 +434,18 @@
     }
 
     // ---------- pause / home ----------
-    function togglePause() { paused = !paused; $("pause").hidden = !paused; if (!paused) { last = performance.now(); resetKeys(); } }
+    function togglePause() { if (NQ.on) { $("pause").hidden = !$("pause").hidden; return; } paused = !paused; $("pause").hidden = !paused; if (!paused) { last = performance.now(); resetKeys(); } }
     $("pausebtn").addEventListener("click", togglePause);
     $("resume").addEventListener("click", togglePause);
-    $("tolevels").addEventListener("click", showSelect);
-    function goHome() { if (window.parent !== window) parent.postMessage("runmil:home", "*"); else location.href = "index.html?menu"; }
+    $("tolevels").addEventListener("click", function () { if (NQ.on && !NQ.host) { $("pause").hidden = true; toast("THE HOST PICKS THE LEVEL", 1500); return; } showSelect(); });
+    function goHome() { netLeave(); if (window.parent !== window) parent.postMessage("runmil:home", "*"); else location.href = "index.html?menu"; }
     $("quit").addEventListener("click", goHome);
-    $("retry").addEventListener("click", function () { startLevel(lv.n); });
-    $("over-levels").addEventListener("click", showSelect);
+    $("retry").addEventListener("click", function () { if (NQ.on && !NQ.host) return; startLevel(lv.n); });
+    $("over-levels").addEventListener("click", function () { if (NQ.on && !NQ.host) return; showSelect(); });
     $("over-home").addEventListener("click", goHome);
-    $("clear-levels").addEventListener("click", showSelect);
+    $("clear-levels").addEventListener("click", function () { if (NQ.on && !NQ.host) return; showSelect(); });
     $("clear-home").addEventListener("click", goHome);
-    $("next").addEventListener("click", function () { startLevel(Math.min(4, lv.n + 1)); });
+    $("next").addEventListener("click", function () { if (NQ.on && !NQ.host) return; startLevel(Math.min(4, lv.n + 1)); });
 
 
     // ---------- fighter HUD: portrait, energy, target bar, combo, warning banner ----------
@@ -497,6 +503,7 @@
         } catch (e) { /* audio is optional */ }
     }
     function warn(t, ms, boss) {
+        if (NQ.on && NQ.host) NQ.q.push(["w", t, ms || 0, boss ? 1 : 0]);
         if (boss) { bossWarn(t, ms); return; }
         const el = $("warn"), sh = $("shock"); el.textContent = t; el.classList.add("on"); el.classList.toggle("boss", !!boss);
         if (boss) { sh.hidden = false; sh.src = "visuals/survival/shock.webp?" + Date.now(); } else sh.hidden = true;                 // the shocked face pops up with the boss warning
@@ -601,11 +608,11 @@
         const RA = window.RunMilAudio, nm = m.t + "_arrive"; if (!RA || !RA.has || !RA.has("sfx", nm)) return false;
         S.vt = S.vt || {}; if ((S.vt[nm] || -9) > S.t - 2.5) return true; S.vt[nm] = S.t; SFX(nm); return true;
     }
-    function spark(x, y, col, n, sz) { for (let i = 0; i < n; i++) fx.push({ k: "p", x: x, y: y, vx: (Math.random() - 0.5) * 380, vy: -Math.random() * 300, l: 0.5, c: col, sz: sz || 5 }); }
-    function blood(x, y, n, dir) { for (let i = 0; i < n; i++) fx.push({ k: "p", x: x, y: y, vx: (dir || 0) * (80 + Math.random() * 220) + (Math.random() - 0.5) * 240, vy: -Math.random() * 380, l: 0.45 + Math.random() * 0.4, c: Math.random() < 0.5 ? "#b3121f" : "#6e0a14", sz: 4 + Math.random() * 5 }); }
-    function burst(x, y, r) { fx.push({ k: "b", x: x, y: y, a: Math.random() * 3, l: 0.17, max: 0.17, r: r || 46 }); }       // star-shaped impact flash
-    function slash(x, y, ang) { fx.push({ k: "s", x: x, y: y, a: ang, l: 0.16 }); }
-    function floatText(t, x, y, col) { fx.push({ k: "t", s: t, x: x, y: y, l: 0.9, c: col || "#fff" }); }
+    function spark(x, y, col, n, sz) { if (NQ.on && NQ.host) NQ.q.push(["p", Math.round(x), Math.round(y), col, n, sz || 0]); for (let i = 0; i < n; i++) fx.push({ k: "p", x: x, y: y, vx: (Math.random() - 0.5) * 380, vy: -Math.random() * 300, l: 0.5, c: col, sz: sz || 5 }); }
+    function blood(x, y, n, dir) { if (NQ.on && NQ.host) NQ.q.push(["b", Math.round(x), Math.round(y), n, dir || 0]); for (let i = 0; i < n; i++) fx.push({ k: "p", x: x, y: y, vx: (dir || 0) * (80 + Math.random() * 220) + (Math.random() - 0.5) * 240, vy: -Math.random() * 380, l: 0.45 + Math.random() * 0.4, c: Math.random() < 0.5 ? "#b3121f" : "#6e0a14", sz: 4 + Math.random() * 5 }); }
+    function burst(x, y, r) { if (NQ.on && NQ.host) NQ.q.push(["x", Math.round(x), Math.round(y), r || 0]); fx.push({ k: "b", x: x, y: y, a: Math.random() * 3, l: 0.17, max: 0.17, r: r || 46 }); }       // star-shaped impact flash
+    function slash(x, y, ang) { if (NQ.on && NQ.host) NQ.q.push(["l", Math.round(x), Math.round(y), Math.round(ang * 100) / 100]); fx.push({ k: "s", x: x, y: y, a: ang, l: 0.16 }); }
+    function floatText(t, x, y, col) { if (NQ.on && NQ.host) NQ.q.push(["t", t, Math.round(x), Math.round(y), col || ""]); fx.push({ k: "t", s: t, x: x, y: y, l: 0.9, c: col || "#fff" }); }
     function bodyBox(m) { const d = m.d; return [m.x - d.hw, -(m.z + d.h), d.hw * 2, d.h]; }            // x, y(up is negative), w, h  (y is height above the ground)
     function kill(m, quiet) {
         if (m.st === "die") return;
@@ -713,6 +720,7 @@
 
     // ---------- drops: nothing / coin / gem / sack of coins / power-up ----------
     function bank(c, g) {                                        // coins + gems go straight into the save, so the menu shows them
+        if (NQ.on && NQ.host) NQ.q.push(["k", c, g]);
         S.coins += c; S.gems += g; $("lcoin").textContent = S.coins; $("lgem").textContent = S.gems;
         try { const sv = rawSave(); if (c) sv.coins = (sv.coins == null ? 1250 : sv.coins) + c; if (g) sv.gems = (sv.gems == null ? 50 : sv.gems) + g; localStorage.setItem(KEY, JSON.stringify(sv)); } catch (e) { /* storage unavailable */ }
     }
@@ -1174,16 +1182,18 @@
             fpsSum += raw; if (++fpsN >= 90) { if (fpsSum / fpsN > 25) { RS = Math.max(0.56, RS * 0.78); cv.width = Math.round(VW * RS); cv.height = Math.round(VH * RS); } fpsN = 0; fpsSum = 0; }
         }
         const dt = Math.min(0.05, raw / 1000); last = t;
-        if (!paused && !ended) { try { update(dt); } catch (e) { console.error(e); } }
+        if (!paused && !ended) { try { if (NQ.on && !NQ.host) updateGuest(dt); else { update(dt); if (NQ.on) netTick(dt); } } catch (e) { console.error(e); } }
+        else if (NQ.on && !NQ.host) { try { updateGuest(dt); } catch (e) { console.error(e); } }
+        else if (NQ.on && ended) { try { netTick(dt); } catch (e) { console.error(e); } }
         if (!paused) { try { draw(); } catch (e) { console.error(e); } }
         requestAnimationFrame(loop);
     }
 
     // ---------- the end of a level ----------
     function sum() { return S.kills + " monsters beaten &bull; " + Math.floor(S.t / 60) + ":" + String(Math.floor(S.t % 60)).padStart(2, "0") + " &bull; hit " + S.hurt + " times &bull; best combo " + S.best; }
-    function gameOver() { if (ended) return; ended = true; if (window.RMX) RMX.calc($("aabb-calc"), (PL.map(function (q) { return q.lastHit; }).filter(Boolean).pop()) || (me && me.lastHit)); $("over-sum").innerHTML = "Wave " + (wv ? Math.max(1, wv.n) : 1) + " of " + WAVES + "<br>" + sum(); $("over").hidden = false; }
+    function gameOver() { if (ended) return; ended = true; netEnd("over"); if (window.RMX) RMX.calc($("aabb-calc"), (PL.map(function (q) { return q.lastHit; }).filter(Boolean).pop()) || (me && me.lastHit)); $("over-sum").innerHTML = "Wave " + (wv ? Math.max(1, wv.n) : 1) + " of " + WAVES + "<br>" + sum(); $("over").hidden = false; }
     function levelClear() {
-        if (ended) return; ended = true;
+        if (ended) return; ended = true; netEnd("clear");
         const p = getProg(), first = !p.cleared[lv.n], newH = DUO && first ? DUO.forLevel(lv.n) : null; p.cleared[lv.n] = 1; p.unlocked = Math.max(p.unlocked, Math.min(4, lv.n + 1)); setProg(p);
         if (newH && !duoSave().p2) setDuo({ p2: newH.id });
         SFX("victory");
@@ -1204,12 +1214,150 @@
         setTimeout(function () { if (!fin) { el.addEventListener("click", end); addEventListener("keydown", key, true); } }, 1600);          // a short moment before it can be skipped
     }
 
+    // ---------- two devices (the host's hotspot): the HOST phone plays the whole level, the GUEST phone sends its buttons and draws what the host reports ----------
+    // Player 1 (main character) = host.  Player 2 (a heroine) = guest.  Coins and gems are shared: both phones bank them.
+    const NT = window.RunMilNet, DD = window.RUNMIL_DUO, NETOK = !!(NT && NT.available && NT.available() && DD);
+    let nseq = 0, ntT = 0, lastKey = "";
+    function nsend(o) { if (NQ.on && NT) NT.send(o); }
+    function myHero() { const open = DD.heroines.filter(function (h) { return getProg().cleared[h.level]; }), cur = DD.byId(duoSave().p2); return cur && getProg().cleared[cur.level] ? cur : open[0] || DD.heroines[0]; }
+    function nwaitEl() {
+        let el = document.getElementById("nwait"); if (el) return el;
+        el = document.createElement("div"); el.id = "nwait"; el.hidden = true;
+        el.style.cssText = "position:fixed;inset:0;z-index:150;background:radial-gradient(ellipse at 50% 30%,#1d2a78,#070b26 75%);color:#fff;font:700 7vmin/1.1 Teko,Impact,sans-serif;text-align:center;padding:4vmin";
+        el.innerHTML = '<div id="nwait-t" style="color:#ffd24a">WAITING FOR THE HOST TO PICK A LEVEL...</div><button id="nwait-b" style="font:700 4.4vmin Teko,Impact,sans-serif;color:#fff;padding:1vmin 5vmin;border:.5vmin solid #9ab0ff;border-radius:1.6vmin;background:linear-gradient(#3a58ff,#1c2fb0)">LEAVE</button>';
+        const st = document.createElement("style"); st.textContent = "#nwait:not([hidden]){display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3vmin}"; document.head.appendChild(st);
+        document.body.appendChild(el); document.getElementById("nwait-b").addEventListener("click", goHome); return el;
+    }
+    function netLobby() { $("select").hidden = true; if (window.RunMilLobby) RunMilLobby.show({ title: "2 PLAYERS", msg: "", onOpen: netOpen, onBack: function () { $("select").hidden = false; } }); }
+    function netOpen(role) {
+        NQ.on = true; NQ.host = role === "host"; NQ.hero = null; NQ.am = null; nseq = 0; ntT = 0; $("net-btn").hidden = true;
+        if (!NQ.host) { NQ.hero = myHero(); heroSheets(NQ.hero); nsend({ t: "hi", hero: NQ.hero.id }); showSelect(); }
+        else { $("select").hidden = false; toast("PLAYER 2 CONNECTED. PICK A LEVEL!", 2600); }
+    }
+    function netSelect() {                                          // the guest does not pick levels: it waits for the host
+        if (!NQ.on) { $("net-btn").hidden = !NETOK; return false; }
+        $("net-btn").hidden = true;
+        if (NQ.host) { nsend({ t: "ev", e: "select" }); return false; }
+        running = false; paused = false; ended = false;
+        ["hud", "pause", "over", "clear", "select"].forEach(function (id) { $(id).hidden = true; }); bgimg.style.display = "none"; ctx.clearRect(0, 0, VW, VH);
+        nwaitEl().hidden = false; return true;
+    }
+    function netStart(n) {
+        const w = document.getElementById("nwait"); if (w) w.hidden = true;
+        ["retry", "over-levels", "clear-levels"].forEach(function (id) { $(id).hidden = false; });
+        if (NQ.on && NQ.host) nsend({ t: "start", n: n });
+    }
+    function netEnd(kind) { if (NQ.on && NQ.host) { netSnap(); nsend({ t: "ev", e: kind }); } }
+    function netLeave() { if (NQ.on) { NQ.on = false; NQ.host = false; if (NT) NT.close(); } }
+    function netLost() {
+        if (!NQ.on) return; NQ.on = false; NQ.host = false; const w = document.getElementById("nwait"); if (w) w.hidden = true;
+        showSelect(); toast("CONNECTION LOST. Check the hotspot and Wi-Fi.", 3500);
+    }
+    function remoteKey(c, d) {                                      // the guest's buttons drive Player 2
+        const p = PL[1]; if (!p || !running || ended || p.dead) { if (p && !d) p.keys[c] = false; return; }
+        if (/^Digit[1-4]$/.test(c)) { if (d) as(p, function () { useWeapon(+c.slice(-1) - 1); }); return; }
+        p.keys[c] = !!d; if (!d) return;
+        as(p, function () { if (c === "Space") jump(); else if (c === "KeyP") attack("punch"); else if (c === "KeyK") attack("kick"); else if (c === "KeyL") special(); });
+    }
+    const R1 = function (v) { return Math.round(v * 10) / 10; }, R2 = function (v) { return Math.round((v || 0) * 100) / 100; };
+    function clean(o) { return JSON.parse(JSON.stringify(o, function (k, v) { return k === "hit" || k === "d" || k === "keys" || k === "wcd" || k === "sv" || (k === "h" && v && typeof v === "object") ? undefined : v; })); }
+    function withHero(a) { return a.map(function (o) { const c = clean(o); c.hid = o.h ? o.h.id : ""; return c; }); }
+    function netSnap() {
+        const b = wv && wv.boss;
+        nsend({
+            t: "s", n: ++nseq, e: NQ.q.splice(0),
+            p: PL.map(function (p) { return { x: R1(p.x), y: R1(p.y), z: R1(p.z), f: p.face, c: p.act ? [p.act.k, R2(p.act.t), R2(p.act.dur)] : 0, d: p.duck ? 1 : 0, mv: p.moving ? 1 : 0, hp: Math.ceil(p.hp), en: Math.round(p.en || 0), dd: p.dead ? 1 : 0, dT: R2(p.deadT), inv: R2(p.inv), vz: Math.round(p.vz), aT: R2(p.airT), rT: R2(p.runT), uT: R2(p.duckT) }; }),
+            m: mons.map(function (m) { return [m.id, m.t, R1(m.x), R1(m.y), R1(m.z), m.face, m.st, R2(m.at), R2(m.wt), R2(m.dieT), Math.ceil(m.hp), m.max, R2(m.down), m.dn || 0, R2(m.hitT), m.hd || 0, R2(m.flash), R2(m.slow), R2(m.rot)]; }),
+            k: pks.map(function (p) { return [p.k, p.pu || "", R1(p.x), R1(p.y), R2(p.age), R2(p.life), R2(p.ph), p.z0]; }),
+            dis: clean(dis), ring: ring ? clean(ring) : null, spk: withHero(spk), flm: withHero(flm), wnd: withHero(wnd), sh: clean(shots), wf: clean(wfx),
+            S: { t: R1(S.t), kills: S.kills, hurt: S.hurt, coins: S.coins, gems: S.gems, combo: S.combo, best: S.best, f: S.f },
+            w: wv ? { n: wv.n, st: wv.st, total: wv.total, killed: wv.killed, b: b ? b.id : 0 } : null,
+            cam: { x: R1(cam.x), y: R1(cam.y) }, shk: R2(shake), am: WEAPONS.map(function (w) { return wam[w.id] | 0; })
+        });
+    }
+    function netTick(dt) { ntT += dt; if (ntT >= 0.033) { ntT = 0; netSnap(); } }
+    function evReplay(e) {
+        e.forEach(function (v) {
+            const k = v[0];
+            if (k === "s") SFX(v[1], v[2] || undefined); else if (k === "p") spark(v[1], v[2], v[3], v[4], v[5] || undefined); else if (k === "b") blood(v[1], v[2], v[3], v[4]);
+            else if (k === "x") burst(v[1], v[2], v[3] || undefined); else if (k === "l") slash(v[1], v[2], v[3]); else if (k === "t") floatText(v[1], v[2], v[3], v[4] || undefined);
+            else if (k === "m") toast(v[1], v[2] || undefined); else if (k === "w") warn(v[1], v[2] || undefined, !!v[3]); else if (k === "k") bank(v[1], v[2]);
+        });
+    }
+    function applySnap(o) {
+        if (!S || !lv) return;
+        o.p.forEach(function (q, i) {
+            const p = PL[i]; if (!p) return; const first = p.tx === undefined;
+            p.tx = q.x; p.ty = q.y; p.tz = q.z; if (first) { p.x = q.x; p.y = q.y; p.z = q.z; }
+            p.face = q.f; p.act = q.c ? { k: q.c[0], t: q.c[1], dur: q.c[2], hit: [] } : null; p.duck = !!q.d; p.moving = !!q.mv; p.dead = q.dd; p.deadT = q.dT; p.inv = q.inv; p.vz = q.vz; p.airT = q.aT; p.runT = q.rT; p.duckT = q.uT;
+            if (p.hp !== q.hp || p.dead !== p._dd) { p.hp = q.hp; p._dd = p.dead; setHp(p); } if (p.en !== q.en || p._edd !== q.dd) { p.en = q.en; p._edd = q.dd; setEn(p); }
+        });
+        const old = {}; mons.forEach(function (m) { old[m.id] = m; });
+        mons = o.m.map(function (a) {
+            let m = old[a[0]]; const first = !m; if (first) m = { id: a[0], t: a[1], d: MD[a[1]] || MD.rat || {} };
+            m.tx = a[2]; m.ty = a[3]; m.tz = a[4]; if (first) { m.x = a[2]; m.y = a[3]; m.z = a[4]; }
+            m.face = a[5]; m.st = a[6]; m.at = a[7]; m.wt = a[8]; m.dieT = a[9]; m.hp = a[10]; m.max = a[11]; m.down = a[12]; m.dn = a[13]; m.hitT = a[14]; m.hd = a[15]; m.flash = a[16]; m.slow = a[17]; m.rot = a[18]; return m;
+        });
+        pks = o.k.map(function (a) { return { k: a[0], pu: a[1] || undefined, x: a[2], y: a[3], age: a[4], life: a[5], ph: a[6], z0: a[7] }; });
+        dis = o.dis; ring = o.ring; shots = o.sh; wfx = o.wf;
+        const hy = function (a) { return a.map(function (c) { c.h = DD.byId(c.hid); c.hit = []; return c; }); }; spk = hy(o.spk); flm = hy(o.flm); wnd = hy(o.wnd);
+        Object.assign(S, o.S); NQ.am = o.am; shake = Math.max(shake, o.shk);
+        $("lcoin").textContent = S.coins; $("lgem").textContent = S.gems;
+        const ce = $("combo"); if (S.combo >= 2) { ce.hidden = false; $("cnum").textContent = S.combo; ce.className = S.combo >= 20 ? "t3" : S.combo >= 10 ? "t2" : "t1"; } else ce.hidden = true;
+        if (o.w) {
+            if (!wv) wv = {}; const b = o.w.b ? mons.filter(function (m) { return m.id === o.w.b; })[0] : null; Object.assign(wv, o.w); wv.boss = b || null;
+            const key = o.w.n + "/" + o.w.killed + "/" + o.w.total + "/" + (b ? Math.round(b.hp) : "");
+            if (key !== lastKey) { lastKey = key; if (wv.n === WAVES && b) setProgress(WAVES, 1 - Math.max(0, b.hp) / b.max); else setProgress(Math.max(1, wv.n), wv.total ? wv.killed / wv.total : 0); }
+            if (b) {
+                if ($("boss").hidden) { const nm = $("boss").querySelector("span"); if (nm) nm.innerHTML = "&#128128; " + (NAMES[b.t] || "THE BOSS"); $("boss").hidden = false; }
+                $("bossfill").style.width = Math.max(b.hp > 0 ? 2 : 0, b.hp / b.max * 100) + "%"; $("bosshp").textContent = Math.max(0, Math.ceil(b.hp)) + " / " + b.max;
+            }
+        }
+        evReplay(o.e);
+        cam.tx = o.cam.x; cam.ty = o.cam.y;
+    }
+    function updateGuest(dt) {                                      // between two reports from the host: keep everything moving smoothly
+        const k = 1 - Math.pow(0.0005, dt);
+        PL.forEach(function (p) {
+            if (p.tx === undefined) return; p.x += (p.tx - p.x) * k; p.y += (p.ty - p.y) * k; p.z += (p.tz - p.z) * k;
+            if (p.moving) p.runT += dt; if (p.duck) p.duckT += dt; if (p.z > 1) p.airT += dt; if (p.act) p.act.t += dt; if (p.dead) p.deadT += dt; if (p.inv > 0) p.inv -= dt;
+        });
+        mons.forEach(function (m) {
+            if (m.tx === undefined) return; m.x += (m.tx - m.x) * k; m.y += (m.ty - m.y) * k; m.z += (m.tz - m.z) * k; m.wt += dt; if (m.st === "atk") m.at += dt; if (m.st === "die") m.dieT += dt;
+            if (m.hitT > 0) m.hitT -= dt; if (m.flash > 0) m.flash -= dt; if (m.down > 0) m.down -= dt;
+        });
+        pks.forEach(function (p) { p.age += dt; p.life -= dt; });
+        shots.forEach(function (s) { s.x += (s.vx || 0) * dt; s.life -= dt; });
+        [spk, flm, wnd].forEach(function (a) { a.forEach(function (o) { o.t += dt; }); });
+        wfx.forEach(function (f) { f.t -= dt; });
+        fx.forEach(function (f) { f.l -= dt; if (f.k === "p") { f.x += f.vx * dt; f.y += f.vy * dt; f.vy += 900 * dt; } else if (f.k === "t") f.y -= 40 * dt; });
+        fx = fx.filter(function (f) { return f.l > 0; });
+        shake = Math.max(0, shake - dt);
+        if (cam.tx !== undefined) { cam.x += (cam.tx - cam.x) * k; cam.y += (cam.ty - cam.y) * k; }
+    }
+    if (NT && DD) {
+        NT.on("msg", function (m) {
+            if (!NQ.on || !m) return;
+            if (m.t === "hi" && NQ.host) { NQ.hero = DD.byId(m.hero) || DD.heroines[0]; heroSheets(NQ.hero); }
+            else if (m.t === "start" && !NQ.host) startLevel(m.n);
+            else if (m.t === "s" && !NQ.host) { if (running) applySnap(m); }
+            else if (m.t === "ev" && !NQ.host) {
+                if (m.e === "over" || m.e === "clear") { if (m.e === "over") gameOver(); else levelClear(); ["retry", "next", "over-levels", "clear-levels"].forEach(function (id) { $(id).hidden = true; }); $("over-sum").innerHTML += "<br>Waiting for the host..."; $("clear-sum").innerHTML += "<br>Waiting for the host..."; }
+                else if (m.e === "select") showSelect();
+            }
+            else if (m.t === "k" && NQ.host) remoteKey(m.c, m.d);
+            else if (m.t === "clr" && NQ.host && PL[1]) PL[1].keys = {};
+        });
+        NT.on("close", netLost);
+        if (NETOK) { $("net-btn").hidden = false; $("net-btn").addEventListener("click", netLobby); }
+    }
+
     // handy for the next steps + testing
-    window.RunMilAmmo = function () { return WEAPONS.map(function (w) { return wam[w.id] | 0; }); };          // the touch buttons show these numbers
+    window.RunMilAmmo = function () { return WEAPONS.map(function (w) { return (NQ.on && !NQ.host && NQ.am ? NQ.am[WEAPONS.indexOf(w)] : wam[w.id]) | 0; }); };          // the touch buttons show these numbers
     window.RunMilSurvival = {
         levels: LEVELS, setProgress: setProgress, toast: toast, state: function () { return me; }, players: function () { return PL; }, setHp: function (i) { setHp(PL[i]); }, setEn: function (i, v) { PL[i].en = v; setEn(PL[i]); }, spikes: function () { return spk; }, levelClear: function () { levelClear(); }, mode: function () { return MODE; }, cam: function () { return cam; }, start: startLevel,
         monsters: function () { return mons; }, pickups: function () { return pks; }, addPk: addPk, applyPU: applyPU, fxState: function () { return S.f; },  wave: function () { return wv; }, spawn: function (t) { return spawn(t); }, hurt: function (n) { hurtPlayer({ d: { dmg: n || 10 }, x: me.x + 10 }); },
-        step: function (dt) { update(dt); }, beginWave: function (n) { beginWave(n); }, kill: function (m, q) { kill(m, q); }, ended: function () { return ended; },
+        step: function (dt) { update(dt); }, over: function () { gameOver(); }, win: function () { levelClear(); }, beginWave: function (n) { beginWave(n); }, kill: function (m, q) { kill(m, q); }, ended: function () { return ended; },
         showUnlock: function (id, f) { showUnlock(DUO.byId(id), f || function () {}); },
         clear: function (n) { const p = getProg(); p.cleared[n] = 1; p.unlocked = Math.max(p.unlocked, Math.min(4, n + 1)); setProg(p); }
     };

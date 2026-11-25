@@ -238,3 +238,6 @@ button.gold { background: linear-gradient(#ffd24a, #e08a00); border-color: #7a4a
 #unlock .ul-txt span { font-size: calc(var(--u) * 26); color: #cfd8ff; }
 #unlock .ul-hint { position: absolute; bottom: calc(var(--u) * 14); left: 0; right: 0; text-align: center; font-style: normal; font-size: calc(var(--u) * 18); color: #8f99d0; animation: ulpulse 1.4s ease-in-out infinite 1.8s; opacity: 0; }
 @keyframes ulpulse { 0%, 100% { opacity: 0; } 50% { opacity: .9; } }
+.sel-rt { justify-self: end; display: flex; gap: calc(var(--u) * 8); }
+.sel-rt button[hidden] { display: none; }
+#net-btn { padding-left: calc(var(--u) * 8) !important; padding-right: calc(var(--u) * 8) !important; }
