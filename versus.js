@@ -325,7 +325,7 @@
         parts.forEach(function (p) { p.t += dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 700 * dt; }); parts = parts.filter(function (p) { return p.t < p.life; });
         floats.forEach(function (f) { f.a += dt; f.y -= 50 * dt; }); floats = floats.filter(function (f) { return f.a < 0.9; });
         if (ph !== "select" && F.length) hud();
-        if (NET.on && NET.host && F.length && ph !== "intro") { NET.t += dt; if (NET.t >= 1 / 30) { NET.t = 0; sendSnap(); } }
+        if (NET.on && NET.host && F.length && ph !== "intro") { NET.t += dt; if (NET.t >= (NT && NT.interval ? NT.interval() : 1 / 30)) { NET.t = 0; sendSnap(); } }
     }
 
     // ---------- two-device play: what the host phone reports every 1/30 s, and how the guest phone draws it ----------
@@ -354,7 +354,7 @@
         F.forEach(function (f) {
             f.flash = Math.max(0, f.flash - dt); f.inv = Math.max(0, f.inv - dt);
             if (f.dead) f.deadT += dt; if (f.moving) f.runT += dt * 1000; if (f.duck) f.duckT += dt * 1000; if (f.z > 0 || f.vz > 0) f.airT += dt; if (f.act) f.act.t = Math.min(f.act.dur, f.act.t + dt);
-            if (f.tx != null) { const k = Math.min(1, dt * 24); f.x += (f.tx - f.x) * k; f.y += (f.ty - f.y) * k; f.z += (f.tz - f.z) * k; }
+            if (f.tx != null) { const k = Math.min(1, dt * (NT && NT.native ? 12 : 24)); f.x += (f.tx - f.x) * k; f.y += (f.ty - f.y) * k; f.z += (f.tz - f.z) * k; }
         });
         objs.forEach(function (s) { s.t += dt; if (s.k === "wind") s.x += s.face * 430 * dt; else if (s.k === "water") s.x += s.face * 560 * dt; else if (s.k === "flame") s.x += s.face * 540 * dt; else if (s.k === "ring") s.r = s.t * 800; });
         parts.forEach(function (p) { p.t += dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 700 * dt; }); parts = parts.filter(function (p) { return p.t < p.life; });

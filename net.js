@@ -71,6 +71,7 @@
 
     window.RunMilNet = {
         available: function () { return NATIVE || TEST; },
+        interval: function () { return NATIVE ? 1 / 15 : 1 / 30; },       // Bluetooth is slow: fewer, newer pictures of the game
         diag: function () { try { const C = CAP() || {}; return "bt-v2 | top=" + (window.top !== window) + "  | native=" + NATIVE + " | plugins=" + (C.PluginHeaders ? C.PluginHeaders.map(function (h) { return h.name; }).join(",") : "n/a") + " | have=" + haveNative() + " | step=" + (NET.step || "-"); } catch (e) { return "diag failed"; } },
         native: NATIVE,
         isOpen: function () { return NET.open; },
@@ -84,7 +85,7 @@
         },
         send: function (o) {
             if (!NET.open) return;
-            if (NATIVE) { lan("send", { data: JSON.stringify(o) }).catch(function () { /* the link closed */ }); }
+            if (NATIVE) { lan("send", { data: JSON.stringify(o), lossy: o && o.t === "s" }).catch(function () { /* the link closed */ }); }
             else bc.postMessage({ k: "d", to: other, from: myId, d: JSON.parse(JSON.stringify(o)) });
         },
         close: function () {

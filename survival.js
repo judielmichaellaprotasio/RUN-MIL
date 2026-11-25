@@ -1275,7 +1275,7 @@
             cam: { x: R1(cam.x), y: R1(cam.y) }, shk: R2(shake), am: WEAPONS.map(function (w) { return wam[w.id] | 0; })
         });
     }
-    function netTick(dt) { ntT += dt; if (ntT >= 0.033) { ntT = 0; netSnap(); } }
+    function netTick(dt) { ntT += dt; if (ntT >= (NT && NT.interval ? NT.interval() : 0.033)) { ntT = 0; netSnap(); } }
     function evReplay(e) {
         e.forEach(function (v) {
             const k = v[0];
