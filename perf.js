@@ -19,7 +19,8 @@
         const st = document.createElement("style");
         st.textContent = "html.phone,html.phone body{position:fixed;inset:0;width:100%;height:100%;overflow:hidden;overscroll-behavior:none;touch-action:manipulation;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;-webkit-text-size-adjust:100%}" +
             "html.phone #loading-screen video,html.phone #title-screen video{object-fit:cover!important}" +
-            "html.phone #main-menu:not(.hidden) .menu-stage{transform:scaleX(var(--sx,1));transform-origin:center}" +
+            "html.phone #main-menu:not(.hidden){--u:min(2vw,3.5556vh);--u:min(2vw,3.5556dvh)}" +
+            "html.phone #main-menu:not(.hidden) .menu-stage{flex:none;transform:scale(calc(.5 * var(--sx,1)),.5);transform-origin:center}" +
             "video::-webkit-media-controls,video::-webkit-media-controls-start-playback-button,video::-webkit-media-controls-overlay-play-button{display:none!important;-webkit-appearance:none!important}";
         (document.head || root).appendChild(st);
         const mv = document.querySelector('meta[name="viewport"]');

@@ -67,6 +67,6 @@
     });
     NT.on("lost", function (d) { const b = found[d.id]; if (b) { b.remove(); delete found[d.id]; } if (!NATIVE && !Object.keys(found).length) $("nlb-none").hidden = false; });
     NT.on("open", function (d) { if (!root.hidden) { hide(); if (opts.onOpen) opts.onOpen(d.role); } });
-    NT.on("error", function (d) { if (root.hidden) return; setState(""); $("nlb-msg").textContent = (d && d.message ? d.message : "Could not connect") + (PHONE && !(d && d.fatal) ? ". Check that Bluetooth is ON on both phones and that your friend tapped HOST A GAME first." : ""); });
+    NT.on("error", function (d) { if (root.hidden) return; setState(""); $("nlb-msg").textContent = (d && d.message ? d.message : "Could not connect") + (PHONE && !(d && d.fatal) ? ". Check that Bluetooth and Location are ON on both phones and that your friend tapped HOST A GAME first." : ""); });
     window.RunMilLobby = { show: show, hide: hide };
 })();
