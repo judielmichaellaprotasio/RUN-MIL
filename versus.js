@@ -22,7 +22,7 @@
     // ---------- fighters ----------
     const MAIN = { id: "main", name: "MIL", color: "#4a9cff", special: "ring", sp: "SHOCKWAVE", sheets: window.RUNMIL_SV, open: true,
         desc: "The hero of Panabo City. Quick fists, quick feet, and a shockwave that clears the whole street." };
-    const SPN = { spikes: "SPIKES", land: "LAND POWER", flames: "FLAMES", wind: "WIND BLAST" };
+    const SPN = { spikes: "SPIKES", land: "LAND POWER", flames: "FLAMES", wind: "WIND BLAST", water: "TIDAL WAVE" };
     let cleared = {}; try { cleared = (JSON.parse(localStorage.getItem("runmil_save") || "{}").survival || {}).cleared || {}; } catch (e) { cleared = {}; }      // a heroine is playable once her Monster Survival level is cleared
     const CH = [MAIN];
     ((window.RUNMIL_DUO && window.RUNMIL_DUO.heroines) || []).forEach(function (h) {
@@ -184,6 +184,7 @@
         f.en = 0; f.inv = 0.5; SK(0.4); SF("boom"); FT("SPECIAL!", f.x, f.y - 210, f.c.color);
         if (k === "spikes" || k === "land") objs.push({ k: "spikes", o: f, x: f.x, y: f.y, t: 0, hit: false, col: f.c.color, land: k === "land" });
         else if (k === "wind") objs.push({ k: "wind", o: f, x: f.x + f.face * 70, y: f.y, face: f.face, t: 0, hit: false });
+        else if (k === "water") objs.push({ k: "water", o: f, x: f.x + f.face * 50, y: f.y, face: f.face, t: 0, hit: false });
         else objs.push({ k: "ring", o: f, x: f.x, y: f.y, t: 0, r: 0, hit: false });
     }
     function updateObjs(dt) {
@@ -200,6 +201,10 @@
                     if (Math.abs(o.y - sy) <= 46 && overlap({ x: sx - 30, y: -260, w: 60, h: 260 }, bb, "SPIKE", "atk", sy)) { s.hit = true; hurt(o, s.o, 28, dx < 0 ? -1 : 1, true); }
                 }
                 s.dead = s.t > (s.land ? 1.7 : 1);
+            } else if (s.k === "water") {                                // a tidal wave rolls along the ground (a box 130 x 170): it throws the other fighter back, a jump over it is too late once it is on you
+                s.x += s.face * 560 * dt;
+                if (!s.hit && !o.dead && Math.abs(o.y - s.y) < 60 && overlap({ x: s.x - 65, y: -170, w: 130, h: 170 }, bb, "WATER", "atk", s.y)) { s.hit = true; hurt(o, s.o, 25, s.face, true); }
+                s.dead = s.t > 1.3 || s.x < -150 || s.x > W + 150;
             } else if (s.k === "wind") {                                 // a whirlwind rolls forward (a box 150 x 190); it knocks the other fighter far back
                 s.x += s.face * 430 * dt; const kk = Math.min(1, 0.4 + s.t / 0.25 * 0.6);
                 if (!s.hit && !o.dead && Math.abs(o.y - s.y) < 60 && overlap({ x: s.x - 75 * kk, y: -190 * kk, w: 150 * kk, h: 190 * kk }, bb, "WIND", "atk", s.y)) { s.hit = true; hurt(o, s.o, 24, s.face, true); }
@@ -351,7 +356,7 @@
             if (f.dead) f.deadT += dt; if (f.moving) f.runT += dt * 1000; if (f.duck) f.duckT += dt * 1000; if (f.z > 0 || f.vz > 0) f.airT += dt; if (f.act) f.act.t = Math.min(f.act.dur, f.act.t + dt);
             if (f.tx != null) { const k = Math.min(1, dt * 24); f.x += (f.tx - f.x) * k; f.y += (f.ty - f.y) * k; f.z += (f.tz - f.z) * k; }
         });
-        objs.forEach(function (s) { s.t += dt; if (s.k === "wind") s.x += s.face * 430 * dt; else if (s.k === "flame") s.x += s.face * 540 * dt; else if (s.k === "ring") s.r = s.t * 800; });
+        objs.forEach(function (s) { s.t += dt; if (s.k === "wind") s.x += s.face * 430 * dt; else if (s.k === "water") s.x += s.face * 560 * dt; else if (s.k === "flame") s.x += s.face * 540 * dt; else if (s.k === "ring") s.r = s.t * 800; });
         parts.forEach(function (p) { p.t += dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 700 * dt; }); parts = parts.filter(function (p) { return p.t < p.life; });
         floats.forEach(function (f) { f.a += dt; f.y -= 50 * dt; }); floats = floats.filter(function (f) { return f.a < 0.9; });
         if (ph !== "select" && F.length) hud();
@@ -433,6 +438,15 @@
                     ctx.fillStyle = gr; ctx.strokeStyle = "#1c0640"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(p.x - p.w, p.y); ctx.lineTo(p.x + p.o, p.y - p.h); ctx.lineTo(p.x + p.w, p.y); ctx.closePath(); ctx.fill(); ctx.stroke();
                 });
                 ctx.restore();
+            } else if (s.k === "water") {
+                if (!front) return; const fx = s.o.c.fx, im = s.o.c.fxImg; if (!fx || !ready(im)) return;
+                const x0 = s.x - s.face * 560 * s.t, kk = 0.62, al = Math.max(0, Math.min(1, (1.3 - s.t) / 0.3));
+                ctx.save(); ctx.globalAlpha = al;
+                for (let i = 0; i * 75 <= 560 * 1.3; i++) {
+                    const tk = s.t - i * 75 / 560; if (tk < 0) break; const fr = Math.floor(tk / (fx.ms / 1000)); if (fr >= fx.n) continue;
+                    ctx.drawImage(im, fr * fx.fw, 0, fx.fw, fx.fh, x0 + s.face * i * 75 - fx.fw * kk / 2, s.y - fx.fh * kk + 8, fx.fw * kk, fx.fh * kk);
+                }
+                ctx.restore();
             } else if (s.k === "wind") {
                 if (!front) return; const fx = s.o.c.fx, im = s.o.c.fxImg; if (!fx || !ready(im)) return;
                 const k = Math.min(1, 0.4 + s.t / 0.25 * 0.6) * 0.95, fr = Math.floor(s.t / (fx.ms / 1000)) % fx.n, al = Math.min(1, (1.5 - s.t) / 0.3);
@@ -494,11 +508,12 @@
         sel();
     }
     function cyc(p, d) { let i = pick[p]; for (let k = 0; k < CH.length; k++) { i = (i + d + CH.length) % CH.length; if (CH[i].open) break; } pick[p] = i; SFX("item"); sel(); pushSel(); }
+    function oneLine(t) { t = (t || "").trim(); const m = t.match(/^.*?[.!?](?=\s|$)/); return m ? m[0] : t; }          // the pick screen shows only the first sentence of a description
     function sel() {
         [1, 2].forEach(function (n) {
             const c = CH[pick[n - 1]];
             [].forEach.call($("cd" + n).children, function (b) { b.classList.toggle("on", +b.dataset.i === pick[n - 1]); });
-            $("pnm" + n).textContent = c.name; $("psp" + n).textContent = c.sp ? "SPECIAL: " + c.sp : ""; $("psp" + n).hidden = !c.sp; $("pds" + n).textContent = c.desc || "";
+            $("pnm" + n).textContent = c.name; $("psp" + n).textContent = c.sp ? "SPECIAL: " + c.sp : ""; $("psp" + n).hidden = !c.sp; $("pds" + n).textContent = oneLine(c.desc);
         });
         [].forEach.call($("arenas").querySelectorAll(".ar"), function (b) { b.classList.toggle("on", +b.dataset.i === ar.i); });
     }

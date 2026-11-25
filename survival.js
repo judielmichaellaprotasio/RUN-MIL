@@ -523,22 +523,31 @@
         });
         flm = flm.filter(function (f) { return f.t < 0.6; });
     }
-    const WIND_LIFE = 1.5, WIND_SPEED = 430;
+    const WIND_LIFE = 1.5, WIND_SPEED = 430, WATER_LIFE = 1.3, WATER_SPEED = 560, WATER_GAP = 75;
     function updateWind(dt) {                                    // the whirlwind is a moving AABB: everything it touches is killed (a boss only loses life)
         if (!wnd.length) return;
         wnd.forEach(function (w) {
-            w.t += dt; w.x += w.face * WIND_SPEED * dt; const k = Math.min(1, 0.4 + w.t / 0.25 * 0.6), bw = 150 * k, bh = 190 * k;
+            w.t += dt; w.x += w.face * (w.water ? WATER_SPEED : WIND_SPEED) * dt; const k = w.water ? 1 : Math.min(1, 0.4 + w.t / 0.25 * 0.6), bw = (w.water ? 130 : 150) * k, bh = (w.water ? 170 : 190) * k;
             mons.forEach(function (m) {
                 if (m.st === "die" || w.hit.indexOf(m.id) >= 0 || Math.abs(m.y - w.y) > 90) return;
-                const b = bodyBox(m); if (!hit(w.x - bw / 2, -bh, bw, bh, b[0], b[1], b[2], b[3], "WIND", "atk", w.y)) return;
-                w.hit.push(m.id); if (!m.d.boss) { m.kb = w.face * 460; m.down = 0.8; m.dn = w.face; } hurtMon(m, spDmg(m), "#bfe8ff"); spark(m.x, m.y - 60 - m.z, "#d8f4ff", 8);
+                const b = bodyBox(m); if (!hit(w.x - bw / 2, -bh, bw, bh, b[0], b[1], b[2], b[3], w.water ? "WATER" : "WIND", "atk", w.y)) return;
+                w.hit.push(m.id); if (!m.d.boss) { m.kb = w.face * (w.water ? 330 : 460); m.down = w.water ? 0.7 : 0.8; m.dn = w.face; } hurtMon(m, spDmg(m), w.water ? "#6ec3ff" : "#bfe8ff"); spark(m.x, m.y - 60 - m.z, w.water ? "#9fd8ff" : "#d8f4ff", 8);
             });
         });
-        wnd = wnd.filter(function (w) { return w.t < WIND_LIFE; });
+        wnd = wnd.filter(function (w) { return w.t < (w.water ? WATER_LIFE : WIND_LIFE); });
     }
     function drawWind() {
         wnd.forEach(function (w) {
             const fx = w.h.fx, im = flameImg(w.h); if (!im.complete || !im.naturalWidth) return;
+            if (w.water) {                                           // CHARM: a tidal wave - the splash of the sprite bursts out of the ground one after another along the way
+                const x0 = w.x - w.face * WATER_SPEED * w.t, kk = 0.62, al = Math.min(1, (WATER_LIFE - w.t) / 0.3);
+                ctx.save(); ctx.globalAlpha = Math.max(0, al);
+                for (let i = 0; i * WATER_GAP <= WATER_SPEED * WATER_LIFE; i++) {
+                    const tk = w.t - i * WATER_GAP / WATER_SPEED; if (tk < 0) break; const fr = Math.floor(tk / (fx.ms / 1000)); if (fr >= fx.n) continue;
+                    ctx.drawImage(im, fr * fx.fw, 0, fx.fw, fx.fh, x0 + w.face * i * WATER_GAP - cam.x - fx.fw * kk / 2, w.y - cam.y - fx.fh * kk + 8, fx.fw * kk, fx.fh * kk);
+                }
+                ctx.restore(); return;
+            }
             const k = Math.min(1, 0.4 + w.t / 0.25 * 0.6) * 0.95, fr = Math.floor(w.t / (fx.ms / 1000)) % fx.n, al = Math.min(1, (WIND_LIFE - w.t) / 0.3);
             ctx.save(); ctx.globalAlpha = Math.max(0, al); ctx.translate(w.x - cam.x, w.y - cam.y);
             ctx.fillStyle = "rgba(0,0,0,.3)"; ctx.beginPath(); ctx.ellipse(0, 0, 70 * k, 14 * k, 0, 0, 7); ctx.fill();
@@ -560,6 +569,9 @@
         me.en = 0; setEn(me); shake = 0.35; me.inv = Math.max(me.inv, 0.8);
         if (me.h && me.h.special === "wind") {                    // MARV: a big whirlwind rolls out in front of her and blows every monster it touches away
             wnd.push({ x: me.x + me.face * 70, y: me.y, face: me.face, t: 0, hit: [], h: me.h }); toast("WIND BLAST!", 1000); SFX(disSfx("tornado")); return;
+        }
+        if (me.h && me.h.special === "water") {                   // CHARM: a tidal wave rolls out along the ground in front of her and washes every monster it touches away
+            wnd.push({ x: me.x + me.face * 50, y: me.y, face: me.face, t: 0, hit: [], h: me.h, water: 1 }); toast("TIDAL WAVE!", 1000); SFX(disSfx("tornado")); return;
         }
         if (me.h && (me.h.special === "land" || me.h.special === "spikes")) {                  // SHAI: LAND POWER - the earth erupts from the ground in every direction
             spk.push({ x: me.x, y: me.y, t: 0, hit: [], dmg: 5, n: me.h.special === "land" ? 10 : window.RUNMIL_PERF ? 12 : 16, col: me.h.color, land: me.h.special === "land", h: me.h }); toast(me.h.special === "land" ? "LAND POWER!" : "SPIKES!", 1000); SFX(disSfx("tornado")); return;

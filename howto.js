@@ -439,7 +439,8 @@
             [["MIL: SHOCKWAVE", "A wide ring of force rolls out along the ground. <b>Jump over it</b> to be safe. Needs a full EN bar."],
              ["SHAI: LAND POWER", "The earth erupts around her in <b>every direction</b>, and jumping does not help. Needs a full EN bar."],
              ["MICHA: FLAMES", "A stream of fire from her hand in the direction she faces. Each press costs only <b>10 EN</b>, so hold your nerve and spam it."],
-             ["MARV: WIND BLAST", "A big whirlwind rolls forward and <b>throws</b> the other fighter back. Needs a full EN bar."]
+             ["MARV: WIND BLAST", "A big whirlwind rolls forward and <b>throws</b> the other fighter back. Needs a full EN bar."],
+             ["CHARM: TIDAL WAVE", "Waves of water burst out of the ground in front of her and <b>wash</b> the other fighter away. Needs a full EN bar."]
             ].forEach(function (it) { p7.appendChild(h("div", "rmx-m big", "<h4>" + it[0] + "</h4><p>" + it[1] + "</p>")); });
             pages.push(p7);
             titles.push("TWO PHONES");
