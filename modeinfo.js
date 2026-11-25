@@ -146,7 +146,7 @@
     var PICKS = [
         { m: "endless", cls: "pk-e", ic: "🏃", t: "ENDLESS RUN", d: "Run through Panabo City. How far can you go?" },
         { m: "survival", cls: "pk-s", ic: "👹", t: "MONSTER SURVIVAL", d: "Survive 5 waves and beat the boss in every level." },
-        { m: "versus", cls: "pk-v", ic: "🥊", t: "1 VS 1", d: NOVS ? "Needs a keyboard, or the Android app with 2 phones." : NATIVE ? "Link two phones through the host's hotspot and fight a friend in 3 rounds." : "Pick a fighter and battle a friend in 3 rounds.", off: NOVS }
+        { m: "versus", cls: "pk-v", ic: "🥊", t: "1 VS 1", d: NOVS ? "Needs a keyboard, or the Android app with 2 phones." : NATIVE ? "Link two phones by Bluetooth and fight a friend in 3 rounds." : "Pick a fighter and battle a friend in 3 rounds.", off: NOVS }
     ];
     function openPick() {
         close(); pp.className = "on"; pp.innerHTML = "";

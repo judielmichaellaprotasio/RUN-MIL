@@ -9,7 +9,7 @@ function fsWanted() {
     try { const s = JSON.parse(localStorage.getItem("runmil_save") || "{}") || {}; return !(s.settings && s.settings.fullscreen === false); }
     catch (e) { return true; }
 }
-function fsSupported() { if (window.RUNMIL_NATIVE) return false;                    // the Android app is already full screen (no tap-to-start gate)
+function fsSupported() { if (window.RUNMIL_NATIVE || window.RUNMIL_PHONE || /Android|iPhone|iPad/i.test(navigator.userAgent || "")) return false;                    // the Android app is already full screen (no tap-to-start gate)
     const el = document.documentElement; return !!(el.requestFullscreen || el.webkitRequestFullscreen); }
 function enterFullscreen() {
     const el = document.documentElement;
@@ -56,7 +56,7 @@ if (needGate) {
     document.addEventListener("keydown", release, true);
 } else {
     startGate.classList.add("hidden");
-    if (returning && fsWanted()) {            // reloaded straight into the menu: go fullscreen on the first click
+    if (returning && fsWanted() && fsSupported()) {            // reloaded straight into the menu: go fullscreen on the first click
         const once = function (e) {
             if (e.type === "keydown" && e.key === "Escape") return;
             document.removeEventListener("pointerup", once, true);
@@ -70,6 +70,8 @@ if (needGate) {
 
 // Start loading video when the browser is ready (and the gate has been passed)
 loadingVideo.addEventListener("canplay", function () { videoReady = true; startLoadingVideo(); });
+loadingVideo.addEventListener("loadeddata", function () { videoReady = true; startLoadingVideo(); });
+startLoadingVideo();
 
 // When loading video finishes
 loadingVideo.addEventListener("ended", function() {

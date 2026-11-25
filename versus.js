@@ -593,7 +593,7 @@
     }
     function lost() {
         if (!NET.on) return; NET.on = false; NET.host = false; toSelect();
-        if (ONLY_NET) showLobby("CONNECTION LOST. Check the hotspot and Wi-Fi and try again."); else toast("CONNECTION LOST");
+        if (ONLY_NET) showLobby("CONNECTION LOST. Check Bluetooth and try again."); else toast("CONNECTION LOST");
     }
     function toast(t) { const el = $("netmsg"); el.textContent = t; el.classList.remove("on"); void el.offsetWidth; el.classList.add("on"); }
     function onEv(m) {

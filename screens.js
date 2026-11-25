@@ -438,6 +438,7 @@
     // =====================  CLICKS  =====================
     let wipeArm = 0;
     function applyFullscreen(on) {
+        if (window.RUNMIL_PHONE) return;
         try {
             if (on && !document.fullscreenElement && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
             if (!on && document.fullscreenElement && document.exitFullscreen) document.exitFullscreen();

@@ -1214,7 +1214,7 @@
         setTimeout(function () { if (!fin) { el.addEventListener("click", end); addEventListener("keydown", key, true); } }, 1600);          // a short moment before it can be skipped
     }
 
-    // ---------- two devices (the host's hotspot): the HOST phone plays the whole level, the GUEST phone sends its buttons and draws what the host reports ----------
+    // ---------- two devices (Bluetooth): the HOST phone plays the whole level, the GUEST phone sends its buttons and draws what the host reports ----------
     // Player 1 (main character) = host.  Player 2 (a heroine) = guest.  Coins and gems are shared: both phones bank them.
     const NT = window.RunMilNet, DD = window.RUNMIL_DUO, NETOK = !!(NT && NT.available && NT.available() && DD);
     let nseq = 0, ntT = 0, lastKey = "";
@@ -1251,7 +1251,7 @@
     function netLeave() { if (NQ.on) { NQ.on = false; NQ.host = false; if (NT) NT.close(); } }
     function netLost() {
         if (!NQ.on) return; NQ.on = false; NQ.host = false; const w = document.getElementById("nwait"); if (w) w.hidden = true;
-        showSelect(); toast("CONNECTION LOST. Check the hotspot and Wi-Fi.", 3500);
+        showSelect(); toast("CONNECTION LOST. Check Bluetooth and try again.", 3500);
     }
     function remoteKey(c, d) {                                      // the guest's buttons drive Player 2
         const p = PL[1]; if (!p || !running || ended || p.dead) { if (p && !d) p.keys[c] = false; return; }

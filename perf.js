@@ -11,6 +11,22 @@
     const root = document.documentElement;
     if (native) root.classList.add("native");
     if (perf) root.classList.add("perf");
+    // phones: a fixed, full-screen picture that cannot be dragged, zoomed or scrolled
+    const phone = native || /Android|iPhone|iPad/i.test(ua) || (window.matchMedia && matchMedia("(pointer: coarse)").matches);
+    window.RUNMIL_PHONE = phone;
+    if (phone) {
+        root.classList.add("phone");
+        const st = document.createElement("style");
+        st.textContent = "html.phone,html.phone body{position:fixed;inset:0;width:100%;height:100%;overflow:hidden;overscroll-behavior:none;touch-action:manipulation;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;-webkit-text-size-adjust:100%}" +
+            "html.phone #loading-screen video,html.phone #title-screen video{object-fit:cover!important}";
+        (document.head || root).appendChild(st);
+        const mv = document.querySelector('meta[name="viewport"]');
+        if (mv) mv.setAttribute("content", "width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover");
+        ["gesturestart", "gesturechange", "gestureend"].forEach(function (n) { document.addEventListener(n, function (e) { e.preventDefault(); }, { passive: false }); });
+        document.addEventListener("touchmove", function (e) { if (e.touches && e.touches.length > 1) e.preventDefault(); }, { passive: false });
+        document.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+        addEventListener("scroll", function () { if (window.scrollX || window.scrollY) window.scrollTo(0, 0); }, true);
+    }
     // a still picture of the first frame of an animated GIF / WebP (an animated 2048 px background costs a phone a lot of time every frame)
     window.RUNMIL_still = function (img, filter, type, q) {
         try {

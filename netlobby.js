@@ -1,5 +1,5 @@
 /* RUN MIL! - the "play with a friend" screen (1 VS 1 and 2 player Monster Survival).
-   Android: the HOST turns the phone's Hotspot on and taps HOST A GAME; the friend joins that Wi-Fi and taps JOIN A GAME > CONNECT.
+   Android: Bluetooth (Nearby). One phone taps HOST A GAME; the friend taps JOIN A GAME and then the host's name.
    RunMilLobby.show({ title, msg, onOpen(role), onBack() })   RunMilLobby.hide() */
 (function () {
     "use strict";
@@ -26,28 +26,28 @@
     document.body.appendChild(root);
     const $ = function (id) { return document.getElementById(id); };
     let opts = {}, state = "", busy = 0; const found = {};
-    const NATIVE = !!NT.native;
+    const NATIVE = false, PHONE = !!NT.native;       // the phone link lists nearby hosts just like the browser test
     function setState(s) {
         state = s; busy = 0; $("nlb-main").hidden = s !== ""; $("nlb-wait").hidden = s !== "host"; $("nlb-jn").hidden = s !== "join";
         $("nlb-devs").hidden = NATIVE; $("nlb-none").hidden = NATIVE || !!Object.keys(found).length; $("nlb-ipbox").hidden = !NATIVE;
     }
     function defMsg() {
-        return NATIVE ? "No internet needed. The HOST switches ON the phone's Hotspot, the other phone joins that Wi-Fi. Then one taps HOST A GAME and the other taps JOIN A GAME."
+        return PHONE ? "Uses Bluetooth, no internet needed. Switch Bluetooth ON on both phones and keep them close. One phone taps HOST A GAME, the other taps JOIN A GAME and then the host's name."
             : "Open this page in two tabs. One tab hosts, the other joins.";
     }
     function show(o) { opts = o || {}; $("nlb-t").textContent = opts.title || "PLAY WITH A FRIEND"; root.hidden = false; setState(""); $("nlb-msg").textContent = opts.msg || defMsg(); }
     function hide() { root.hidden = true; }
     $("nlb-host").addEventListener("click", function () {
-        setState("host"); $("nlb-code").textContent = NATIVE ? "..." : "MIL-" + (100 + Math.floor(Math.random() * 900));
-        $("nlb-msg").textContent = NATIVE ? "Switch ON your phone's Hotspot (Settings > Hotspot) and tell your friend to join it." : "Waiting for your friend...";
-        $("nlb-wsub").textContent = NATIVE ? "Your friend joins your hotspot Wi-Fi, then taps JOIN A GAME. Waiting for them..." : "Your friend picks this name.";
+        setState("host"); $("nlb-code").textContent = "MIL-" + (100 + Math.floor(Math.random() * 900));
+        $("nlb-msg").textContent = PHONE ? "Starting Bluetooth... Allow the Bluetooth / Nearby permissions if asked." : "Waiting for your friend...";
+        $("nlb-wsub").textContent = "Your friend taps JOIN A GAME and picks this name.";
         NT.host($("nlb-code").textContent);
-        if (NATIVE) setTimeout(function () { if (state === "host" && $("nlb-code").textContent === "...") { $("nlb-msg").textContent = "Hosting did not start. Install the newest app version (APK) on this phone, then try again."; $("nlb-wsub").textContent = NT.diag ? NT.diag() : "old net.js"; } }, 4000);
+        if (PHONE) setTimeout(function () { if (state === "host" && NT.diag && !/advertising/.test(NT.diag())) { $("nlb-msg").textContent = "Bluetooth hosting did not start. Allow the permissions, switch Bluetooth ON, then tap BACK and try again."; $("nlb-wsub").textContent = NT.diag(); } }, 9000);
     });
     $("nlb-join").addEventListener("click", function () {
         Object.keys(found).forEach(function (k) { found[k].remove(); delete found[k]; }); setState("join");
-        $("nlb-msg").textContent = NATIVE ? "First join the host's hotspot in your Wi-Fi settings. Then tap CONNECT." : "Looking for a host nearby...";
-        if (!NATIVE) NT.join("FRIEND-" + (100 + Math.floor(Math.random() * 900)));
+        $("nlb-msg").textContent = "Looking for a host nearby...";
+        NT.join("FRIEND-" + (100 + Math.floor(Math.random() * 900)));
     });
     $("nlb-go").addEventListener("click", function () {
         if (busy) return; busy = 1; $("nlb-msg").textContent = "Connecting..."; NT.join("", $("nlb-ip").value.trim());
@@ -67,6 +67,6 @@
     });
     NT.on("lost", function (d) { const b = found[d.id]; if (b) { b.remove(); delete found[d.id]; } if (!NATIVE && !Object.keys(found).length) $("nlb-none").hidden = false; });
     NT.on("open", function (d) { if (!root.hidden) { hide(); if (opts.onOpen) opts.onOpen(d.role); } });
-    NT.on("error", function (d) { if (root.hidden) return; setState(""); $("nlb-msg").textContent = (d && d.message ? d.message : "Could not connect") + (NATIVE && !(d && d.fatal) ? ". Check the hotspot and that your friend tapped HOST A GAME first." : ""); });
+    NT.on("error", function (d) { if (root.hidden) return; setState(""); $("nlb-msg").textContent = (d && d.message ? d.message : "Could not connect") + (PHONE && !(d && d.fatal) ? ". Check that Bluetooth is ON on both phones and that your friend tapped HOST A GAME first." : ""); });
     window.RunMilLobby = { show: show, hide: hide };
 })();
