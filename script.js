@@ -38,10 +38,60 @@ const mainMenu = document.getElementById("main-menu");
 const startGate = document.getElementById("start-gate");
 const returning = /[?&]menu\b/.test(location.search);          // coming back to the menu: no videos, no gate
 const needGate = !returning && fsWanted() && fsSupported() && !document.fullscreenElement;
+const INTRO_KEY = "runmil_skip_intro";
+const introScreen = document.getElementById("intro-screen"), introVideo = document.getElementById("intro-video");
+let introSkipped = false; try { introSkipped = localStorage.getItem(INTRO_KEY) === "1"; } catch (e) { /* no storage */ }
+if (/[?&]intro\b/.test(location.search)) introSkipped = false;      // index.html?intro always plays it again
+let introDone = returning || introSkipped;
+let goalDone = returning;
+const goalScreen = document.getElementById("goal-screen");
 let gateDone = !needGate, videoReady = loadingVideo.readyState >= 3;
 
+function finishIntro() {
+    if (introDone) return; introDone = true;
+    try { if (document.getElementById("intro-never").checked) localStorage.setItem(INTRO_KEY, "1"); } catch (e) { /* ignore */ }
+    introVideo.pause(); introScreen.classList.add("hidden");
+    startLoadingVideo();
+}
+function startIntro() {
+    if (introDone || !gateDone || !introScreen.classList.contains("hidden")) return;
+    introScreen.classList.remove("hidden"); introVideo.currentTime = 0;
+    introVideo.play().catch(function () { introVideo.muted = true; introVideo.play().catch(function () { finishIntro(); }); });   // blocked with sound? play it silent rather than skip
+}
+// the mission message types itself out; the exit / monster / friend icons light up when their word appears
+const GOAL = [["Help Mil find his ", ""], ["companions", "c-f"], [" and beat ", ""], ["monsters", "c-m"], [" to win the game and ", ""], ["escape", "c-e"], [" this place.", ""]];
+const GOAL_ICON = { companions: "gi-friends", monsters: "gi-monsters", escape: "gi-exit" };
+let goalTimer = 0, goalShown = false;
+function showGoal() {
+    if (goalShown) return; goalShown = true;
+    goalScreen.classList.remove("hidden");
+    const box = document.getElementById("goal-text"), ok = document.getElementById("goal-ok"), em = document.getElementById("goal-embers");
+    for (let i = 0; i < 22; i++) { const e = document.createElement("i"); e.style.left = Math.random() * 100 + "%"; e.style.setProperty("--dx", (Math.random() * 14 - 7) + "vw"); e.style.animationDuration = 5 + Math.random() * 6 + "s"; e.style.animationDelay = -Math.random() * 8 + "s"; em.appendChild(e); }
+    let seg = 0, ch = 0, cur = null; box.textContent = ""; box.classList.add("typing");
+    const finish = function () {
+        clearInterval(goalTimer); box.classList.remove("typing"); box.innerHTML = ""; 
+        GOAL.forEach(function (g) { const sp = document.createElement("span"); if (g[1]) sp.className = g[1]; sp.textContent = g[0]; box.appendChild(sp); });
+        ["gi-friends", "gi-monsters", "gi-exit"].forEach(function (id) { document.getElementById(id).classList.add("on"); });
+        ok.classList.add("show");
+    };
+    goalTimer = setInterval(function () {
+        if (seg >= GOAL.length) { finish(); return; }
+        if (ch === 0) { cur = document.createElement("span"); if (GOAL[seg][1]) cur.className = GOAL[seg][1]; box.appendChild(cur); const id = GOAL_ICON[GOAL[seg][0]]; if (id) document.getElementById(id).classList.add("on"); }
+        cur.textContent = GOAL[seg][0].slice(0, ++ch); if (ch >= GOAL[seg][0].length) { seg++; ch = 0; }
+    }, 38);
+    goalScreen.querySelector(".goal-card").addEventListener("click", function (e) { if (e.target === ok) return; if (!ok.classList.contains("show")) finish(); });
+}
+document.getElementById("goal-ok").addEventListener("click", function () { goalDone = true; goalScreen.classList.add("hidden"); startLoadingVideo(); });
+introVideo.addEventListener("ended", finishIntro);
+introVideo.addEventListener("error", finishIntro);
+document.getElementById("intro-skip").addEventListener("click", finishIntro);
+
+
 function startLoadingVideo() {
-    if (!gateDone || !videoReady) return;
+    if (!gateDone) return;
+    if (!introDone) { startIntro(); return; }
+    if (!goalDone) { showGoal(); return; }
+    if (!videoReady) return;
     loadingVideo.play().catch(function (error) {
         console.error("Loading video playback error:", error);
     });

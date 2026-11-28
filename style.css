@@ -688,3 +688,55 @@ html.perf button:hover, html.perf .menu-btn:hover, html.perf .icon-btn:hover { f
     text-shadow: calc(var(--u)*.22) 0 #1a0a40, calc(var(--u)*-.22) 0 #1a0a40, 0 calc(var(--u)*.22) #1a0a40, 0 calc(var(--u)*-.22) #1a0a40, 0 calc(var(--u)*.4) 0 #1a0a40; }
 html.perf #main-menu .claim.ready, html.perf #main-menu .menu-btn.ready .dot { animation: none; }
 
+
+/* ---------- intro video (comic story) ---------- */
+#intro-screen { position: fixed; inset: 0; z-index: 60; background: #000; display: flex; align-items: center; justify-content: center; }
+#intro-screen.hidden { display: none; }
+#intro-video { width: 100%; height: 100%; object-fit: contain; background: #000; }
+.intro-bar { position: absolute; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px)); background: linear-gradient(transparent, rgba(0,0,0,.65)); }
+.intro-never { display: flex; align-items: center; gap: 8px; color: #fff; font: 700 clamp(13px, 2.4vmin, 20px)/1 "Teko", Impact, sans-serif; letter-spacing: .06em; cursor: pointer; user-select: none; }
+.intro-never input { width: clamp(18px, 3vmin, 26px); height: clamp(18px, 3vmin, 26px); accent-color: #ffb81f; }
+#intro-skip { font: 700 clamp(15px, 3vmin, 26px)/1 "Teko", Impact, sans-serif; letter-spacing: .08em; color: #fff; padding: .45em 1.3em; border: 2px solid #9ab0ff; border-radius: 10px; background: linear-gradient(#3a58ff, #1c2fb0); cursor: pointer; }
+#intro-skip:active { transform: scale(.96); }
+
+/* ---------- mission message (after the intro, before loading) ---------- */
+#goal-screen { position: fixed; inset: 0; z-index: 61; display: flex; align-items: center; justify-content: center; background: #05071a; overflow: hidden; }
+#goal-screen.hidden { display: none; }
+.goal-bg { position: absolute; inset: -6%; background: linear-gradient(rgba(5,7,26,.55), rgba(5,7,26,.88)), url("visuals/images/menu-bg.png") center/cover; filter: blur(5px) saturate(1.2); animation: goalZoom 14s ease-in-out infinite alternate; }
+@keyframes goalZoom { from { transform: scale(1); } to { transform: scale(1.12) translate(-1.5%, 1%); } }
+.goal-embers { position: absolute; inset: 0; pointer-events: none; }
+.goal-embers i { position: absolute; bottom: -4vh; width: .9vmin; height: .9vmin; border-radius: 50%; background: #ffb347; box-shadow: 0 0 1.4vmin #ff8a00; opacity: 0; animation: ember linear infinite; }
+@keyframes ember { 0% { transform: translate(0,0); opacity: 0; } 10% { opacity: .9; } 100% { transform: translate(var(--dx), -108vh); opacity: 0; } }
+.goal-eyes i { position: absolute; width: 5vmin; height: 1.6vmin; opacity: 0; animation: eyes 5s infinite; }
+.goal-eyes i::before, .goal-eyes i::after { content: ""; position: absolute; top: 0; width: 1.8vmin; height: 1.3vmin; background: #ff2b2b; border-radius: 50% 50% 40% 40%; box-shadow: 0 0 2vmin 0.5vmin rgba(255,40,40,.7); transform: skewY(8deg); }
+.goal-eyes i::before { left: 0; } .goal-eyes i::after { right: 0; transform: skewY(-8deg); }
+.goal-eyes i:nth-child(2) { animation-delay: 1.3s; } .goal-eyes i:nth-child(3) { animation-delay: 2.4s; } .goal-eyes i:nth-child(4) { animation-delay: .7s; } .goal-eyes i:nth-child(5) { animation-delay: 3.3s; }
+@keyframes eyes { 0%, 18% { opacity: 0; } 24%, 60% { opacity: 1; } 66%, 100% { opacity: 0; } }
+.goal-card { position: relative; display: flex; flex-direction: column; align-items: center; gap: clamp(8px, 2.6vmin, 24px); width: min(88vw, 940px); padding: clamp(14px, 4vmin, 38px) clamp(14px, 4vmin, 40px) clamp(14px, 3.6vmin, 34px); text-align: center; background: linear-gradient(160deg, rgba(20,30,95,.92), rgba(7,10,38,.94)); border: .6vmin solid #fff; border-radius: 2vmin; box-shadow: 0 0 0 .7vmin #ffcf3a, 1.4vmin 1.8vmin 0 rgba(0,0,0,.55), 0 0 5vmin rgba(80,110,255,.35); animation: goalPop .55s cubic-bezier(.2,1.4,.4,1) both; }
+@keyframes goalPop { from { transform: scale(.7) rotate(-2deg); opacity: 0; } to { transform: none; opacity: 1; } }
+.goal-stamp { position: absolute; top: -3.6vmin; left: 50%; transform: translateX(-50%) rotate(-3deg); padding: .2em 1.1em; font: 700 clamp(20px, 5.4vmin, 46px)/1 "Teko", Impact, sans-serif; letter-spacing: .18em; color: #fff; background: #e3162b; border: .45vmin solid #fff; border-radius: 1vmin; box-shadow: .6vmin .8vmin 0 rgba(0,0,0,.55); text-shadow: 0 .3vmin 0 rgba(0,0,0,.4); }
+.goal-text { margin: clamp(10px, 3vmin, 26px) 0 0; min-height: 3.5em; color: #fff; font: 700 clamp(20px, 5.4vmin, 46px)/1.18 "Teko", Impact, sans-serif; letter-spacing: .03em; text-shadow: 0 .3vmin 0 rgba(0,0,0,.6); }
+.goal-text em { font-style: normal; }
+.goal-text .c-f { color: #7dffa0; } .goal-text .c-m { color: #ff6b6b; } .goal-text .c-e { color: #ffd24a; }
+.goal-text.typing::after { content: "\258C"; margin-left: 2px; animation: caret .5s steps(1) infinite; color: #ffd24a; }
+@keyframes caret { 50% { opacity: 0; } }
+.goal-icons { display: flex; justify-content: center; align-items: flex-end; gap: clamp(10px, 4vmin, 40px); width: 100%; }
+.gi { display: flex; flex-direction: column; align-items: center; gap: .8vmin; min-width: 0; }
+.gi b { font: 700 clamp(11px, 2.7vmin, 22px)/1 "Teko", Impact, sans-serif; letter-spacing: .08em; color: #9aa6e6; transition: color .4s; }
+.faces { display: flex; }
+.faces img { width: clamp(30px, 9vmin, 76px); height: clamp(30px, 9vmin, 76px); object-fit: cover; border-radius: 50%; border: .4vmin solid #7dffa0; margin-left: -1.2vmin; background: #0b1038; filter: brightness(0) drop-shadow(0 0 .8vmin #7dffa0); transition: filter .6s; }
+.faces img:first-child { margin-left: 0; }
+#gi-friends.on .faces img { filter: none; } #gi-friends.on b { color: #7dffa0; }
+.mon { position: relative; width: clamp(40px, 11vmin, 90px); height: clamp(30px, 9vmin, 76px); border-radius: 1.2vmin; background: #12081a; border: .4vmin solid #4a2a5a; display: flex; align-items: center; justify-content: center; gap: 1.6vmin; overflow: hidden; }
+.mon i { width: 28%; height: 24%; background: #3a1a1a; border-radius: 50% 50% 40% 40%; transition: background .3s, box-shadow .3s; }
+#gi-monsters.on .mon i { background: #ff2b2b; box-shadow: 0 0 1.6vmin .4vmin rgba(255,40,40,.8); animation: blink 2.4s infinite; } #gi-monsters.on b { color: #ff6b6b; }
+@keyframes blink { 0%, 92%, 100% { transform: scaleY(1); } 96% { transform: scaleY(.1); } }
+.exit { padding: .5em 1em; font: 700 clamp(16px, 4.6vmin, 38px)/1 "Teko", Impact, sans-serif; letter-spacing: .12em; color: #314; background: #17331f; border: .4vmin solid #2c5a38; border-radius: 1vmin; transition: all .4s; }
+#gi-exit.on .exit { color: #eaffef; background: #17c24d; border-color: #b9ffcf; box-shadow: 0 0 3vmin #17ff6a; animation: exitPulse 1s ease-in-out infinite alternate; } #gi-exit.on b { color: #7dffa0; }
+@keyframes exitPulse { from { filter: brightness(.9); } to { filter: brightness(1.35); } }
+#goal-ok { margin-top: .6vmin; position: relative; overflow: hidden; font: 700 clamp(22px, 5.5vmin, 44px)/1 "Teko", Impact, sans-serif; letter-spacing: .1em; color: #3b2300; padding: .35em 2em; border: .5vmin solid #fff2b0; border-radius: 1.6vmin; background: linear-gradient(#ffd24a, #f08a00); box-shadow: 0 .7vmin 0 #9b5a00, 0 1.2vmin 2.4vmin rgba(0,0,0,.5); cursor: pointer; opacity: 0; transform: translateY(2vmin) scale(.9); pointer-events: none; transition: opacity .4s, transform .4s; }
+#goal-ok.show { opacity: 1; transform: none; pointer-events: auto; animation: okPulse 1.2s ease-in-out .4s infinite; }
+#goal-ok::after { content: ""; position: absolute; top: 0; bottom: 0; width: 30%; left: -40%; background: linear-gradient(90deg, transparent, rgba(255,255,255,.7), transparent); transform: skewX(-20deg); animation: shine 2.2s infinite; }
+@keyframes shine { 0% { left: -40%; } 60%, 100% { left: 140%; } }
+@keyframes okPulse { 50% { transform: scale(1.06); } }
+#goal-ok:active { transform: translateY(.4vmin) scale(.97); box-shadow: 0 .3vmin 0 #9b5a00; }

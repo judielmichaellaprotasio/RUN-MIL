@@ -27,6 +27,32 @@
         <small class="gate-sub">The game opens in fullscreen</small>
     </div>
 
+    <!-- INTRO: comic story video, after the "tap to start" screen. Has SKIP and "don't show again". -->
+    <div id="intro-screen" class="hidden">
+        <video id="intro-video" playsinline preload="auto"><source src="visuals/videos/INTRO.mp4" type="video/mp4"></video>
+        <div class="intro-bar">
+            <label class="intro-never"><input type="checkbox" id="intro-never"><span>DON'T SHOW AGAIN</span></label>
+            <button type="button" id="intro-skip">SKIP &#9654;&#9654;</button>
+        </div>
+    </div>
+
+    <!-- MISSION: one sentence + OKAY, shown after the intro and before the loading video -->
+    <div id="goal-screen" class="hidden">
+        <div class="goal-bg"></div>
+        <div class="goal-embers" id="goal-embers"></div>
+        <div class="goal-eyes"><i style="left:6%;top:62%"></i><i style="left:14%;top:30%"></i><i style="left:82%;top:24%"></i><i style="left:91%;top:66%"></i><i style="left:48%;top:86%"></i></div>
+        <div class="goal-card">
+            <div class="goal-stamp">MISSION</div>
+            <p class="goal-text" id="goal-text" aria-live="polite"></p>
+            <div class="goal-icons">
+                <div class="gi" id="gi-friends"><div class="faces"><img src="visuals/heroines/h1/face.png" alt=""><img src="visuals/heroines/h2/face.png" alt="" onerror="this.style.display='none'"><img src="visuals/heroines/h3/face.png" alt=""><img src="visuals/heroines/h4/face.png" alt=""></div><b>FIND COMPANIONS</b></div>
+                <div class="gi" id="gi-monsters"><div class="mon"><i></i><i></i></div><b>BEAT MONSTERS</b></div>
+                <div class="gi" id="gi-exit"><div class="exit">EXIT</div><b>ESCAPE</b></div>
+            </div>
+            <button type="button" id="goal-ok">OKAY</button>
+        </div>
+    </div>
+
     <!-- SCREEN 1: LOADING VIDEO -->
 
  <!-- SCREEN 1: LOADING VIDEO -->
