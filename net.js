@@ -28,29 +28,32 @@
     const TEST = /[?&]nettest=1/.test(location.search);
     // the game page runs inside a frame of the menu: the Android bridge only answers the TOP window, so always talk to its Capacitor
     function CAP() { try { if (window.top && window.top !== window && window.top.Capacitor) return window.top.Capacitor; } catch (e) { /* other origin */ } return window.Capacitor; }
-    function plug() {
-        const C = CAP(); if (!C) return null;
-        try { return (C.Plugins && C.Plugins.RunMilNearby) || (C.registerPlugin ? C.registerPlugin("RunMilNearby") : null); } catch (e) { return null; }
+    // two ways to link the phones: "lan" = the host's hotspot (fast, a few ms) or "bt" = Bluetooth / Nearby (slower). The player picks one in the lobby.
+    const PLUGIN = { lan: "RunMilLan", bt: "RunMilNearby" };
+    let MODE = "lan"; try { MODE = localStorage.getItem("runmil_link") === "bt" ? "bt" : "lan"; } catch (e) { /* none */ }
+    function plug(name) {
+        const C = CAP(); if (!C) return null; name = name || PLUGIN[MODE];
+        try { return (C.Plugins && C.Plugins[name]) || (C.registerPlugin ? C.registerPlugin(name) : null); } catch (e) { return null; }
     }
     const NATIVE = !!(CAP() && CAP().isNativePlatform && CAP().isNativePlatform() && plug()) && !TEST;
-    const NET = { role: "", peer: null, open: false, handles: [] };
+    const NET = { role: "", peer: null, open: false, handles: { lan: [], bt: [] } };
 
     // ---------- Android: Bluetooth (Google Nearby Connections: finds the other phone, connects over Bluetooth, moves to Wi-Fi Direct by itself for speed) ----------
-    function haveNative() { try { const C = CAP(); if (C && C.PluginHeaders && C.PluginHeaders.length !== undefined) return C.PluginHeaders.some(function (h) { return h && h.name === "RunMilNearby"; }); return !!(C && C.Plugins && C.Plugins.RunMilNearby); } catch (e) { return false; } }
+    function haveNative(name) { name = name || PLUGIN[MODE]; try { const C = CAP(); if (C && C.PluginHeaders && C.PluginHeaders.length !== undefined) return C.PluginHeaders.some(function (h) { return h && h.name === name; }); return !!(C && C.Plugins && C.Plugins[name]); } catch (e) { return false; } }
     function lan(method, args) {                       // call a plugin method; if the JS proxy has no such method, go straight to the native bridge
         const P = plug(), C = CAP();
         if (P && typeof P[method] === "function") return Promise.resolve(P[method](args));
-        if (C && typeof C.nativePromise === "function") return C.nativePromise("RunMilNearby", method, args || {});
+        if (C && typeof C.nativePromise === "function") return C.nativePromise(PLUGIN[MODE], method, args || {});
         return Promise.reject(new Error("no way to call " + method));
     }
-    function nativeStart(role, name) {
-        const P = plug(); NET.role = role; NET.step = "start";
-        if (!haveNative()) { emit("error", { fatal: 1, message: "This app was built without the Bluetooth part (NearbyPlugin). Upload the Android files, wait for Build Android APK to finish, then install the NEW apk." }); return Promise.resolve(); }
+    function nativeStart(role, name, ip) {
+        const P = plug(), mode = MODE; NET.role = role; NET.step = "start";
+        if (!haveNative()) { emit("error", { fatal: 1, message: "This app was built without the " + (mode === "lan" ? "hotspot" : "Bluetooth") + " link part. Upload the Android files, wait for Build Android APK to finish, then install the NEW apk." }); return Promise.resolve(); }
         try {
-            if (!NET.handles.length) {
+            if (!NET.handles[mode].length) {
                 ["found", "lost", "connected", "message", "closed", "failure"].forEach(function (ev) {
                     const h = P.addListener(ev, function (d) {
-                        d = d || {};
+                        if (mode !== MODE) return; d = d || {};
                         if (ev === "found") emit("found", { id: d.id, name: d.name });
                         else if (ev === "lost") emit("lost", { id: d.id });
                         else if (ev === "connected") { NET.open = true; NET.peer = d.name || "FRIEND"; emit("open", { role: NET.role, peer: NET.peer }); }
@@ -58,14 +61,16 @@
                         else if (ev === "closed") { const was = NET.open; NET.open = false; if (was) emit("close", {}); }
                         else emit("error", { message: d.message || "Connection failed" });
                     });
-                    NET.handles.push(h);
+                    NET.handles[mode].push(h);
                 });
             }
-        } catch (e) { NET.step = "listen failed: " + (e && e.message || e); emit("error", { fatal: 1, message: "Bluetooth link failed to start: " + (e && e.message || e) }); return Promise.resolve(); }
+        } catch (e) { NET.step = "listen failed: " + (e && e.message || e); emit("error", { fatal: 1, message: "Link failed to start: " + (e && e.message || e) }); return Promise.resolve(); }
         NET.step = "calling";
         let call;
-        try { call = lan("start", { role: role, name: name || "" }).then(function () { NET.step = role === "host" ? "advertising" : "searching"; }); }
-        catch (e) { NET.step = "threw: " + (e && e.message || e); emit("error", { fatal: 1, message: "Bluetooth link failed: " + (e && e.message || e) }); return Promise.resolve(); }
+        try {
+            if (mode === "lan") call = (role === "host" ? lan("host", {}).then(function (r) { NET.step = "advertising"; emit("hosting", { ips: (r && r.ips) || [] }); }) : lan("join", { ip: ip || "" }).then(function () { NET.step = "joined"; }));
+            else call = lan("start", { role: role, name: name || "" }).then(function () { NET.step = role === "host" ? "advertising" : "searching"; });
+        } catch (e) { NET.step = "threw: " + (e && e.message || e); emit("error", { fatal: 1, message: "Link failed: " + (e && e.message || e) }); return Promise.resolve(); }
         return call.catch(function (e) { NET.step = "rejected"; emit("error", { message: (e && (e.message || e.errorMessage)) || "Could not start" }); });
     }
 
@@ -89,21 +94,24 @@
 
     window.RunMilNet = {
         available: function () { return NATIVE || TEST; },
-        interval: function () { if (!NATIVE) return 1 / 30; return Q.rtt > 400 ? 1 / 6 : Q.rtt > 200 ? 1 / 10 : 1 / 15; },       // Bluetooth is slow: fewer, newer pictures of the game
-        diag: function () { try { const C = CAP() || {}; return "bt-v2 | top=" + (window.top !== window) + "  | native=" + NATIVE + " | plugins=" + (C.PluginHeaders ? C.PluginHeaders.map(function (h) { return h.name; }).join(",") : "n/a") + " | have=" + haveNative() + " | step=" + (NET.step || "-"); } catch (e) { return "diag failed"; } },
+        interval: function () { if (!NATIVE || MODE === "lan") return 1 / 30; return Q.rtt > 400 ? 1 / 6 : Q.rtt > 200 ? 1 / 10 : 1 / 15; },       // Bluetooth is slow: fewer, newer pictures of the game
+        diag: function () { try { const C = CAP() || {}; return "link-v5 " + MODE + " | top=" + (window.top !== window) + "  | native=" + NATIVE + " | plugins=" + (C.PluginHeaders ? C.PluginHeaders.map(function (h) { return h.name; }).join(",") : "n/a") + " | have=" + haveNative() + " | step=" + (NET.step || "-"); } catch (e) { return "diag failed"; } },
         native: NATIVE,
         isOpen: function () { return NET.open; },
         role: function () { return NET.role; },
         peerName: function () { return NET.peer; },
         host: function (name) { return NATIVE ? nativeStart("host", name) : bcStart("host", name); },
-        join: function (name) { return NATIVE ? nativeStart("guest", name) : bcStart("guest", name); },
+        mode: function () { return MODE; },
+        setMode: function (m) { MODE = m === "bt" ? "bt" : "lan"; try { localStorage.setItem("runmil_link", MODE); } catch (e) { /* none */ } },
+        hasMode: function (m) { return haveNative(PLUGIN[m]); },
+        join: function (name, ip) { return NATIVE ? nativeStart("guest", name, ip) : bcStart("guest", name); },
         connect: function (id, name) {
             if (NATIVE) return lan("connect", { id: id }).catch(function (e) { emit("error", { message: (e && (e.message || e.errorMessage)) || "Could not connect" }); });
             bc.postMessage({ k: "req", to: id, from: myId, name: name || "FRIEND" }); return Promise.resolve();
         },
         send: function (o) {
             if (!NET.open) return;
-            if (NATIVE) { lan("send", { data: JSON.stringify(o), lossy: o && o.t === "s" }).catch(function () { /* the link closed */ }); }
+            if (NATIVE) { lan("send", { data: JSON.stringify(o), lossy: MODE === "bt" && o && o.t === "s" }).catch(function () { /* the link closed */ }); }
             else bc.postMessage({ k: "d", to: other, from: myId, d: JSON.parse(JSON.stringify(o)) });
         },
         close: function () {
