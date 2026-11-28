@@ -1182,7 +1182,7 @@
             fpsSum += raw; if (++fpsN >= 90) { if (fpsSum / fpsN > 25) { RS = Math.max(0.56, RS * 0.78); cv.width = Math.round(VW * RS); cv.height = Math.round(VH * RS); } fpsN = 0; fpsSum = 0; }
         }
         const dt = Math.min(0.05, raw / 1000); last = t;
-        if (!paused && !ended) { try { if (NQ.on && !NQ.host) updateGuest(dt); else { update(dt); if (NQ.on) netTick(dt); } } catch (e) { console.error(e); } }
+        if (!paused && !ended) { try { if (NQ.on && !NQ.host) updateGuest(dt); else if (NQ.on && NQ.hold) { /* host waits until the friend's phone is in the level */ } else { update(dt); if (NQ.on) netTick(dt); } } catch (e) { console.error(e); } }
         else if (NQ.on && !NQ.host) { try { updateGuest(dt); } catch (e) { console.error(e); } }
         else if (NQ.on && ended) { try { netTick(dt); } catch (e) { console.error(e); } }
         if (!paused) { try { draw(); } catch (e) { console.error(e); } }
@@ -1232,7 +1232,10 @@
     function netOpen(role) {
         NQ.on = true; NQ.host = role === "host"; NQ.hero = null; NQ.am = null; nseq = 0; ntT = 0; $("net-btn").hidden = true;
         if (!NQ.host) { NQ.hero = myHero(); heroSheets(NQ.hero); nsend({ t: "hi", hero: NQ.hero.id }); showSelect(); }
-        else { $("select").hidden = false; toast("PLAYER 2 CONNECTED. PICK A LEVEL!", 2600); }
+        else {
+            $("select").hidden = false; toast("PLAYER 2 CONNECTED. PICK A LEVEL!", 2600);
+            let tries = 0; clearInterval(helloTimer); helloTimer = setInterval(function () { if (!NQ.on || ++tries > 14) { clearInterval(helloTimer); return; } nsend({ t: "hello" }); }, 700);   // makes sure the friend's phone knows it is connected
+        }
     }
     function netSelect() {                                          // the guest does not pick levels: it waits for the host
         if (!NQ.on) { $("net-btn").hidden = !NETOK; return false; }
@@ -1245,12 +1248,24 @@
     function netStart(n) {
         const w = document.getElementById("nwait"); if (w) w.hidden = true;
         ["retry", "over-levels", "clear-levels"].forEach(function (id) { $(id).hidden = false; });
-        if (NQ.on && NQ.host) nsend({ t: "start", n: n });
+        if (NQ.on && NQ.host) {
+            // do not play (and do not flood the link) until the friend's phone says it is in the level; keep sending "start" until it does
+            const id = ++startId, t0 = Date.now(); NQ.hold = id; clearInterval(holdTimer);
+            const w2 = nwaitEl(), tt = document.getElementById("nwait-t"); if (tt) tt.textContent = "WAITING FOR YOUR FRIEND'S PHONE..."; w2.hidden = false;
+            const go = function () { nsend({ t: "start", n: n, id: id }); };
+            go(); holdTimer = setInterval(function () {
+                if (NQ.hold !== id) { clearInterval(holdTimer); return; }
+                if (Date.now() - t0 > 12000) { netRelease(id); return; }      // give up waiting: play anyway
+                go();
+            }, 700);
+        }
     }
+    let startId = 0, holdTimer = 0, lastStartId = 0, helloTimer = 0;
+    function netRelease(id) { if (id && NQ.hold !== id) return; NQ.hold = 0; clearInterval(holdTimer); const w = document.getElementById("nwait"); if (w) w.hidden = true; last = performance.now(); }
     function netEnd(kind) { if (NQ.on && NQ.host) { netSnap(); nsend({ t: "ev", e: kind }); } }
-    function netLeave() { if (NQ.on) { NQ.on = false; NQ.host = false; if (NT) NT.close(); } }
+    function netLeave() { NQ.hold = 0; clearInterval(holdTimer); if (NQ.on) { NQ.on = false; NQ.host = false; if (NT) NT.close(); } }
     function netLost() {
-        if (!NQ.on) return; NQ.on = false; NQ.host = false; const w = document.getElementById("nwait"); if (w) w.hidden = true;
+        if (!NQ.on) return; NQ.on = false; NQ.host = false; NQ.hold = 0; clearInterval(holdTimer); const w = document.getElementById("nwait"); if (w) w.hidden = true;
         showSelect(); toast("CONNECTION LOST. Check Bluetooth and try again.", 3500);
     }
     function remoteKey(c, d) {                                      // the guest's buttons drive Player 2
@@ -1338,8 +1353,10 @@
     if (NT && DD) {
         NT.on("msg", function (m) {
             if (!NQ.on || !m) return;
-            if (m.t === "hi" && NQ.host) { NQ.hero = DD.byId(m.hero) || DD.heroines[0]; heroSheets(NQ.hero); }
-            else if (m.t === "start" && !NQ.host) startLevel(m.n);
+            if (m.t === "hi" && NQ.host) { clearInterval(helloTimer); NQ.hero = DD.byId(m.hero) || DD.heroines[0]; heroSheets(NQ.hero); }
+            else if (m.t === "start" && !NQ.host) { if (m.id !== lastStartId) { lastStartId = m.id; startLevel(m.n); } nsend({ t: "rdy", id: m.id }); setTimeout(function () { nsend({ t: "rdy", id: m.id }); }, 400); }
+            else if (m.t === "rdy" && NQ.host) netRelease(m.id);
+            else if (m.t === "hello" && !NQ.host) { nsend({ t: "hi", hero: NQ.hero ? NQ.hero.id : "" }); }
             else if (m.t === "s" && !NQ.host) { if (running) applySnap(m); }
             else if (m.t === "ev" && !NQ.host) {
                 if (m.e === "over" || m.e === "clear") { if (m.e === "over") gameOver(); else levelClear(); ["retry", "next", "over-levels", "clear-levels"].forEach(function (id) { $(id).hidden = true; }); $("over-sum").innerHTML += "<br>Waiting for the host..."; $("clear-sum").innerHTML += "<br>Waiting for the host..."; }

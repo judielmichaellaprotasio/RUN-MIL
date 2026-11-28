@@ -57,7 +57,7 @@
                         if (ev === "found") emit("found", { id: d.id, name: d.name });
                         else if (ev === "lost") emit("lost", { id: d.id });
                         else if (ev === "connected") { NET.open = true; NET.peer = d.name || "FRIEND"; emit("open", { role: NET.role, peer: NET.peer }); }
-                        else if (ev === "message") { let o = null; try { o = JSON.parse(d.data); } catch (e) { /* not ours */ } if (o) emit("msg", o); }
+                        else if (ev === "message") { let o = null; try { o = JSON.parse(d.data); } catch (e) { /* not ours */ } if (o) { if (!NET.open) { NET.open = true; NET.peer = NET.peer || "FRIEND"; emit("open", { role: NET.role, peer: NET.peer }); } emit("msg", o); } }   // a message proves the link works, even if the "connected" report is late
                         else if (ev === "closed") { const was = NET.open; NET.open = false; if (was) emit("close", {}); }
                         else emit("error", { message: d.message || "Connection failed" });
                     });

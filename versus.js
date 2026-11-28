@@ -243,10 +243,14 @@
     // ---------- rounds ----------
     function banner(txt, cls, sub) { const b = $("bn"); b.className = cls || ""; b.innerHTML = txt ? "<b>" + txt + "</b>" + (sub ? "<small>" + sub + "</small>" : "") : ""; }
     function names() { return [F[0] ? F[0].c.name : CH[pick[0]].name, F[1] ? F[1].c.name : CH[pick[1]].name]; }
+    let vsId = 0, vsAck = 0, vsGot = 0, vsTimer = 0;
     function startMatch(fa) {
         if (ph !== "select") return; if (NET.on && !NET.host && typeof fa !== "number") return; if (!NET.on) save();
         const ai = typeof fa === "number" ? fa : ar.i >= 0 ? ar.i : Math.floor(Math.random() * ARENAS.length);
-        arena = ARENAS[ai]; if (NET.on && NET.host) nsend({ t: "start", p: [CH[pick[0]].id, CH[pick[1]].id], a: ai });
+        arena = ARENAS[ai]; if (NET.on && NET.host) {                      // keep sending "start" until the friend's phone answers "rdy" (a lost message used to leave it waiting forever)
+            const sid = ++vsId, msg = { t: "start", p: [CH[pick[0]].id, CH[pick[1]].id], a: ai, id: sid }; let tries = 0; nsend(msg); clearInterval(vsTimer);
+            vsTimer = setInterval(function () { if (vsAck === sid || !NET.on || ++tries > 12) { clearInterval(vsTimer); return; } nsend(msg); }, 700);
+        }
         F = []; newRound(); wins = [0, 0]; rn = 0; rrec = [];
         $("select").hidden = true; $("win").hidden = true; $("hud").hidden = true; banner("");
         const c = [CH[pick[0]], CH[pick[1]]];
@@ -604,7 +608,8 @@
         if (!NET.on || !m) return;
         if (m.t === "hi") pushSel();
         else if (m.t === "sel") { pick[NET.slot ? 0 : 1] = idx(m.id); if (!NET.host && typeof m.a === "number") ar.i = m.a; if (ph === "select") { sel(); netUI(); } if (!NET.gotSel) { NET.gotSel = 1; pushSel(); } }
-        else if (m.t === "start") { if (!NET.host) { ph = "select"; pick[0] = idx(m.p[0]); pick[1] = idx(m.p[1]); startMatch(m.a); } }
+        else if (m.t === "rdy") { if (NET.host) vsAck = m.id; }
+        else if (m.t === "start") { if (!NET.host) { nsend({ t: "rdy", id: m.id }); if (m.id === vsGot) return; vsGot = m.id; ph = "select"; pick[0] = idx(m.p[0]); pick[1] = idx(m.p[1]); startMatch(m.a); } }
         else if (m.t === "ev") { if (!NET.host) onEv(m); }
         else if (m.t === "s") { if (!NET.host) applySnap(m); }
         else if (m.t === "k") { const f = F[1]; if (NET.host && f) { f.keys[m.n] = !!m.d; if (m.d) press(f, m.n); } }
