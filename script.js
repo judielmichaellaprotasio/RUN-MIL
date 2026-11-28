@@ -68,7 +68,7 @@ function startIntro() {
             if (introVideo.paused && !introDone) introVideo.play().catch(function () { });
         };
         document.addEventListener("pointerdown", unmute, true); document.addEventListener("keydown", unmute, true);
-        introVideo.play().catch(function () { finishIntro(); });
+        introVideo.play().catch(function () { introProblem("blocked from playing"); });
     });   // blocked with sound? play it silent rather than skip
 }
 // ---- little synthesized sound effects for the mission screen (no files needed; follow the SFX setting) ----
@@ -135,7 +135,29 @@ function showGoal() {
 const goalOk = document.getElementById("goal-ok");
 if (goalOk) goalOk.addEventListener("click", function () { GSND.ok(); goalDone = true; goalScreen.classList.add("hidden"); startLoadingVideo(); });
 if (introVideo) introVideo.addEventListener("ended", finishIntro);
-introVideo.addEventListener("error", finishIntro);
+// a broken intro is no longer skipped silently: retry once, then say why for a few seconds
+let introRetried = false, introPlayed = false;
+introVideo.addEventListener("playing", function () { introPlayed = true; });
+function introProblem(why) {
+    if (introDone) return;
+    let m = document.getElementById("intro-msg");
+    if (!m) { m = document.createElement("div"); m.id = "intro-msg"; m.style.cssText = "position:absolute;left:0;right:0;top:40%;text-align:center;color:#fff;font:700 20px/1.3 sans-serif;padding:0 20px;text-shadow:0 2px 4px #000"; introScreen.appendChild(m); }
+    m.textContent = "Intro video problem: " + why; setTimeout(finishIntro, 4000);
+}
+const introSrc = introVideo.querySelector("source");
+if (introSrc) introSrc.addEventListener("error", function () { introVideo.dispatchEvent(new Event("error")); });   // errors of a <source> do not reach the video itself
+introVideo.addEventListener("error", function () {
+    if (introDone) return;
+    const e = introVideo.error;
+    if (!introRetried) { introRetried = true; try { introVideo.src = "visuals/videos/INTRO.mp4?r=" + Date.now(); introVideo.load(); introVideo.play().catch(function () { }); return; } catch (x) { /* fall through */ } }
+    introProblem("code " + (e ? e.code : "?") + (e && e.code === 4 ? " (file missing or format not supported)" : ""));
+});
+// started but never plays (e.g. stuck loading): look again after 6 s
+setTimeout(function () {
+    if (introDone || introPlayed || introScreen.classList.contains("hidden")) return;
+    introVideo.muted = true; introVideo.play().catch(function () { });
+    setTimeout(function () { if (!introDone && !introPlayed) introProblem("did not start (ready " + introVideo.readyState + ", network " + introVideo.networkState + ")"); }, 4000);
+}, 6000);
 document.getElementById("intro-skip").addEventListener("click", finishIntro);
 
 
