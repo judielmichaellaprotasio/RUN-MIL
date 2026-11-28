@@ -740,3 +740,11 @@ html.perf #main-menu .claim.ready, html.perf #main-menu .menu-btn.ready .dot { a
 @keyframes shine { 0% { left: -40%; } 60%, 100% { left: 140%; } }
 @keyframes okPulse { 50% { transform: scale(1.06); } }
 #goal-ok:active { transform: translateY(.4vmin) scale(.97); box-shadow: 0 .3vmin 0 #9b5a00; }
+
+#intro-snd { position: absolute; top: calc(10px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); padding: .35em 1.1em; border-radius: 999px; background: rgba(0,0,0,.7); border: 2px solid #ffd24a; color: #ffd24a; font: 700 clamp(14px, 3vmin, 24px)/1 "Teko", Impact, sans-serif; letter-spacing: .08em; pointer-events: none; animation: sndBlink 1s ease-in-out infinite alternate; }
+#intro-snd[hidden] { display: none; }
+@keyframes sndBlink { from { opacity: .55; } to { opacity: 1; } }
+
+/* phones: a lighter background for the mission screen (no blur / no zoom: those can render black on weaker GPUs) */
+html.phone .goal-bg { filter: none; animation: none; inset: 0; background: linear-gradient(rgba(5,7,26,.62), rgba(5,7,26,.9)), url("visuals/images/menu-bg.png") center/cover, #0b1038; }
+html.phone .goal-card { animation: none; }

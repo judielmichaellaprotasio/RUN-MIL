@@ -43,28 +43,78 @@ const introScreen = document.getElementById("intro-screen"), introVideo = docume
 let introSkipped = false; try { introSkipped = localStorage.getItem(INTRO_KEY) === "1"; } catch (e) { /* no storage */ }
 if (/[?&]intro\b/.test(location.search)) introSkipped = false;      // index.html?intro always plays it again
 let introDone = returning || introSkipped;
-let goalDone = returning;
+let goalDone = returning, loadingStarted = false;
 const goalScreen = document.getElementById("goal-screen");
 let gateDone = !needGate, videoReady = loadingVideo.readyState >= 3;
 
 function finishIntro() {
     if (introDone) return; introDone = true;
     try { if (document.getElementById("intro-never").checked) localStorage.setItem(INTRO_KEY, "1"); } catch (e) { /* ignore */ }
-    introVideo.pause(); introScreen.classList.add("hidden");
+    introVideo.pause(); introScreen.classList.add("hidden"); document.getElementById("intro-snd").hidden = true;
+    // free the phone's video decoder: with the intro still loaded, the loading video can stay black on Android
+    try { introVideo.removeAttribute("src"); Array.prototype.forEach.call(introVideo.querySelectorAll("source"), function (n) { n.remove(); }); introVideo.load(); } catch (e) { /* ignore */ }
     startLoadingVideo();
 }
 function startIntro() {
     if (introDone || !gateDone || !introScreen.classList.contains("hidden")) return;
     introScreen.classList.remove("hidden"); introVideo.currentTime = 0;
-    introVideo.play().catch(function () { introVideo.muted = true; introVideo.play().catch(function () { finishIntro(); }); });   // blocked with sound? play it silent rather than skip
+    introVideo.muted = false;
+    introVideo.play().catch(function () {
+        // the browser only allows sound after a tap: play it silent now, and switch the sound on at the first tap / key
+        introVideo.muted = true; document.getElementById("intro-snd").hidden = false;
+        const unmute = function () {
+            document.removeEventListener("pointerdown", unmute, true); document.removeEventListener("keydown", unmute, true);
+            introVideo.muted = false; introVideo.volume = 1; document.getElementById("intro-snd").hidden = true;
+            if (introVideo.paused && !introDone) introVideo.play().catch(function () { });
+        };
+        document.addEventListener("pointerdown", unmute, true); document.addEventListener("keydown", unmute, true);
+        introVideo.play().catch(function () { finishIntro(); });
+    });   // blocked with sound? play it silent rather than skip
 }
+// ---- little synthesized sound effects for the mission screen (no files needed; follow the SFX setting) ----
+const GSND = (function () {
+    let ac = null;
+    function vol() { try { const st = (JSON.parse(localStorage.getItem("runmil_save") || "{}").settings) || {}; return st.sfx === false ? 0 : (st.sfxVol === undefined ? 80 : st.sfxVol) / 100; } catch (e) { return .8; } }
+    function ctx() {
+        if (!ac) { try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return null; } }
+        if (ac.state === "suspended") ac.resume().catch(function () { });
+        return ac;
+    }
+    function tone(type, f0, f1, dur, gain, delay) {
+        const c = ctx(), v = vol(); if (!c || !v) return;
+        const t = c.currentTime + (delay || 0), o = c.createOscillator(), g = c.createGain();
+        o.type = type; o.frequency.setValueAtTime(f0, t); if (f1 && f1 !== f0) o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(Math.max(0.0002, gain * v), t + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+        o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + dur + 0.02);
+    }
+    function noise(dur, gain, hp, delay) {
+        const c = ctx(), v = vol(); if (!c || !v) return;
+        const t = c.currentTime + (delay || 0), n = Math.floor(c.sampleRate * dur), buf = c.createBuffer(1, n, c.sampleRate), d = buf.getChannelData(0);
+        for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / n);
+        const src = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain();
+        src.buffer = buf; f.type = "highpass"; f.frequency.value = hp || 300; g.gain.value = gain * v;
+        src.connect(f); f.connect(g); g.connect(c.destination); src.start(t);
+    }
+    return {
+        unlock: ctx,
+        pop: function () { tone("sine", 160, 45, .35, .7); noise(.18, .35, 1200); tone("square", 420, 900, .12, .12, .05); },          // the card slams in
+        tick: function () { tone("square", 880 + Math.random() * 380, 0, .03, .05); },
+        friends: function () { [660, 880, 1320].forEach(function (f, i) { tone("triangle", f, f, .22, .18, i * .07); }); },          // sparkle
+        monsters: function () { tone("sawtooth", 110, 55, .5, .22); tone("sawtooth", 117, 58, .5, .16); noise(.35, .12, 90); },       // growl
+        exit: function () { [523, 659, 784, 1047].forEach(function (f, i) { tone("square", f, f, .16, .1, i * .06); }); },            // bright ding
+        ready: function () { [392, 523, 659, 784].forEach(function (f, i) { tone("triangle", f, f, .28, .2, i * .09); }); },          // button appears
+        ok: function () { tone("square", 700, 260, .12, .2); tone("triangle", 1046, 1568, .25, .18, .06); noise(.08, .15, 2000); }    // button pressed
+    };
+})();
+document.addEventListener("pointerdown", function () { GSND.unlock(); }, true);
+
 // the mission message types itself out; the exit / monster / friend icons light up when their word appears
 const GOAL = [["Help Mil find his ", ""], ["companions", "c-f"], [" and beat ", ""], ["monsters", "c-m"], [" to win the game and ", ""], ["escape", "c-e"], [" this place.", ""]];
 const GOAL_ICON = { companions: "gi-friends", monsters: "gi-monsters", escape: "gi-exit" };
 let goalTimer = 0, goalShown = false;
 function showGoal() {
     if (goalShown) return; goalShown = true;
-    goalScreen.classList.remove("hidden");
+    goalScreen.classList.remove("hidden"); GSND.unlock(); setTimeout(GSND.pop, 120);
     const box = document.getElementById("goal-text"), ok = document.getElementById("goal-ok"), em = document.getElementById("goal-embers");
     for (let i = 0; i < 22; i++) { const e = document.createElement("i"); e.style.left = Math.random() * 100 + "%"; e.style.setProperty("--dx", (Math.random() * 14 - 7) + "vw"); e.style.animationDuration = 5 + Math.random() * 6 + "s"; e.style.animationDelay = -Math.random() * 8 + "s"; em.appendChild(e); }
     let seg = 0, ch = 0, cur = null; box.textContent = ""; box.classList.add("typing");
@@ -72,17 +122,19 @@ function showGoal() {
         clearInterval(goalTimer); box.classList.remove("typing"); box.innerHTML = ""; 
         GOAL.forEach(function (g) { const sp = document.createElement("span"); if (g[1]) sp.className = g[1]; sp.textContent = g[0]; box.appendChild(sp); });
         ["gi-friends", "gi-monsters", "gi-exit"].forEach(function (id) { document.getElementById(id).classList.add("on"); });
+        if (!ok.classList.contains("show")) GSND.ready();
         ok.classList.add("show");
     };
     goalTimer = setInterval(function () {
         if (seg >= GOAL.length) { finish(); return; }
-        if (ch === 0) { cur = document.createElement("span"); if (GOAL[seg][1]) cur.className = GOAL[seg][1]; box.appendChild(cur); const id = GOAL_ICON[GOAL[seg][0]]; if (id) document.getElementById(id).classList.add("on"); }
-        cur.textContent = GOAL[seg][0].slice(0, ++ch); if (ch >= GOAL[seg][0].length) { seg++; ch = 0; }
+        if (ch === 0) { cur = document.createElement("span"); if (GOAL[seg][1]) cur.className = GOAL[seg][1]; box.appendChild(cur); const id = GOAL_ICON[GOAL[seg][0]]; if (id) { document.getElementById(id).classList.add("on"); GSND[{ "gi-friends": "friends", "gi-monsters": "monsters", "gi-exit": "exit" }[id]](); } }
+        cur.textContent = GOAL[seg][0].slice(0, ++ch); if (GOAL[seg][0].charAt(ch - 1) !== " " && ch % 2) GSND.tick(); if (ch >= GOAL[seg][0].length) { seg++; ch = 0; }
     }, 38);
     goalScreen.querySelector(".goal-card").addEventListener("click", function (e) { if (e.target === ok) return; if (!ok.classList.contains("show")) finish(); });
 }
-document.getElementById("goal-ok").addEventListener("click", function () { goalDone = true; goalScreen.classList.add("hidden"); startLoadingVideo(); });
-introVideo.addEventListener("ended", finishIntro);
+const goalOk = document.getElementById("goal-ok");
+if (goalOk) goalOk.addEventListener("click", function () { GSND.ok(); goalDone = true; goalScreen.classList.add("hidden"); startLoadingVideo(); });
+if (introVideo) introVideo.addEventListener("ended", finishIntro);
 introVideo.addEventListener("error", finishIntro);
 document.getElementById("intro-skip").addEventListener("click", finishIntro);
 
@@ -90,11 +142,16 @@ document.getElementById("intro-skip").addEventListener("click", finishIntro);
 function startLoadingVideo() {
     if (!gateDone) return;
     if (!introDone) { startIntro(); return; }
-    if (!goalDone) { showGoal(); return; }
-    if (!videoReady) return;
-    loadingVideo.play().catch(function (error) {
-        console.error("Loading video playback error:", error);
-    });
+    if (!goalDone) { try { showGoal(); return; } catch (e) { console.error("mission screen failed", e); goalDone = true; goalScreen.classList.add("hidden"); } }
+    if (loadingStarted) return; loadingStarted = true;
+    // do not wait for "canplay": Android WebView often never loads a video before play() is called
+    const tryPlay = function () { return loadingVideo.play().catch(function (error) { console.error("Loading video playback error:", error); }); };
+    loadingVideo.muted = true;
+    try { if (loadingVideo.readyState === 0) loadingVideo.load(); } catch (e) { /* ignore */ }
+    tryPlay();
+    setTimeout(function () { if (loadingVideo.paused && !loadingScreen.classList.contains("hidden")) tryPlay(); }, 1200);
+    // safety net: never sit on a black screen - if the video has not started after 6 s, go on to the title
+    setTimeout(function () { if (loadingVideo.currentTime === 0 && !loadingScreen.classList.contains("hidden")) loadingVideo.dispatchEvent(new Event("ended")); }, 6000);
 }
 
 if (needGate) {
@@ -127,7 +184,7 @@ if (needGate) {
 // Start loading video when the browser is ready (and the gate has been passed)
 loadingVideo.addEventListener("canplay", function () { videoReady = true; startLoadingVideo(); });
 loadingVideo.addEventListener("loadeddata", function () { videoReady = true; startLoadingVideo(); });
-startLoadingVideo();
+setTimeout(startLoadingVideo, 0);          // after the whole file has run (the mission screen code is further down)
 
 // When loading video finishes
 loadingVideo.addEventListener("ended", function() {
