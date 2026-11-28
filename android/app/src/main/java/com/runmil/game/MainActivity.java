@@ -12,6 +12,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(NearbyPlugin.class);                                        // the two-phone link for 1 VS 1 (Bluetooth / Nearby)
+        registerPlugin(LanPlugin.class);                                           // ...or over the host phone's hotspot (much faster)
         super.onCreate(savedInstanceState);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);      // the screen stays on while you play
         WebSettings s = getBridge().getWebView().getSettings();
