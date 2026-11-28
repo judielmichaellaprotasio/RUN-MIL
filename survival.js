@@ -193,6 +193,32 @@
     function as(p, fn) { const sm = me, sk = keys, sw = wcd; me = p; keys = p.keys; wcd = p.wcd; try { return fn(); } finally { me = sm; keys = sk; wcd = sw; } }
     function resetKeys() { PL.forEach(function (p) { p.keys = {}; }); if (PL[0]) keys = PL[0].keys; else keys = {}; }
     const twoP = function () { return PL.length > 1; };
+    // on a phone nobody shares the keyboard: Player 2 is played by the computer (a bot)
+    const BOT = (!!window.RUNMIL_NATIVE || (window.matchMedia && matchMedia("(pointer: coarse)").matches) || /[?&]touch=1/.test(location.search)) && !/[?&]nettest=1/.test(location.search);
+    function botThink(p, dt) {
+        const k = p.keys, b = p.bot || (p.bot = { t: 0, cd: 0.5, sp: 0 });
+        b.cd -= dt; b.t -= dt; b.sp -= dt;
+        if (p.dead || ended || !running) { k.KeyA = k.KeyD = k.KeyW = k.KeyS = k.KeyC = false; return; }
+        if (p.act || b.t > 0) return;
+        b.t = 0.09 + Math.random() * 0.12;
+        k.KeyA = k.KeyD = k.KeyW = k.KeyS = k.KeyC = false;
+        let tg = null, bd = 1e9, near = 0;
+        mons.forEach(function (m) { if (m.st === "die") return; const d = Math.abs(m.x - p.x) + Math.abs(m.y - p.y) * 1.5; if (d < 300) near++; if (d < bd) { bd = d; tg = m; } });
+        const lead = PL[0];
+        if (!tg || bd > 950) {                                     // nothing to fight: stay close to Player 1
+            const dx = lead.x - p.x - (lead.face > 0 ? -90 : 90), dy = lead.y + 14 - p.y;
+            if (Math.abs(dx) > 40) { if (dx > 0) k.KeyD = true; else k.KeyA = true; }
+            if (Math.abs(dy) > 16) { if (dy > 0) k.KeyS = true; else k.KeyW = true; }
+            return;
+        }
+        const dx = tg.x - p.x, dy = tg.y - p.y, ax = Math.abs(dx), lane = (tg.d && tg.d.lane) || 30;
+        if (Math.abs(dy) > Math.max(10, lane * 0.45)) { if (dy > 0) k.KeyS = true; else k.KeyW = true; }
+        if (ax > 100) { if (dx > 0) k.KeyD = true; else k.KeyA = true; }
+        else if (ax < 40 && Math.random() < 0.4) { if (dx > 0) k.KeyA = true; else k.KeyD = true; }
+        else p.face = dx > 0 ? 1 : -1;
+        if (ax <= 118 && Math.abs(dy) <= lane && b.cd <= 0 && p.z <= 0) { as(p, function () { attack(ax > 100 || Math.random() < 0.4 ? "kick" : "punch"); }); b.cd = 0.3 + Math.random() * 0.35; }
+        if (b.sp <= 0 && (near >= 2 || (tg.d && tg.d.boss)) && p.en >= (p.h && p.h.special === "flames" ? 30 : 100) && ax < 320) { as(p, function () { special(); }); b.sp = 2.5; }
+    }
     const nearest = function (m) { let b = null, bd = 1e9; PL.forEach(function (p) { if (p.dead) return; const d = Math.abs(p.x - m.x) + Math.abs(p.y - m.y) * 1.5; if (d < bd) { bd = d; b = p; } }); return b || PL[0]; };
 
     // ---------- 2 players: the heroines (web version only) ----------
@@ -251,7 +277,7 @@
         bar.hidden = false; two.classList.toggle("locked", !open.length); two.innerHTML = open.length ? "2 PLAYERS" : "&#128274; 2 PLAYERS";
         $("duo-1").classList.toggle("on", mode === 1); two.classList.toggle("on", mode === 2);
         $("duo-chars").textContent = "PLAYER 2 CHARACTERS (" + open.length + "/" + DUO.heroines.length + ")";
-        $("duo-note").textContent = !open.length ? "Clear Level 1 to unlock your first Player 2 character." : mode === 2 ? "Player 2: " + h.name : "";
+        $("duo-note").textContent = !open.length ? "Clear Level 1 to unlock your first Player 2 character." : mode === 2 ? "Player 2: " + h.name + (BOT ? " (played by the computer)" : "") : "";
     }
     let duoAnim = 0;
     function duoPanel() {
@@ -401,8 +427,9 @@
         ArrowLeft: [1, "KeyA"], ArrowRight: [1, "KeyD"], ArrowUp: [1, "KeyW"], ArrowDown: [1, "KeyS"], KeyO: [1, "KeyC"], KeyM: [1, "Space"], KeyP: [1, "KeyP"], KeyK: [1, "KeyK"], KeyL: [1, "KeyL"]   // player 2
     };
     const KMN = Object.assign({}, KM1, { KeyR: [0, "KeyP"], KeyF: [0, "KeyK"], KeyE: [0, "KeyL"] });     // two devices: every phone / keyboard drives its own character
-    function KMAP() { return NQ.on ? KMN : twoP() ? KM2 : KM1; }
+    function KMAP() { return NQ.on ? KMN : BOT ? KM1 : twoP() ? KM2 : KM1; }
     function keyHint() {
+        if (BOT) return "";
         if (!twoP()) return '<b>A</b><b>D</b> run &bull; <b>W</b><b>S</b> up / down &bull; <b>SPACE</b> jump &bull; <b>C</b> duck &bull; <b>P</b> punch &bull; <b>K</b> kick &bull; <b>L</b> special &bull; <b>1</b>-<b>4</b> weapons &bull; <b>B</b> aabb';
         return '<div><i class="p1">P1</i> <b>A</b><b>D</b><b>W</b><b>S</b> move &bull; <b>SPACE</b> jump &bull; <b>C</b> duck &bull; <b>R</b> punch &bull; <b>F</b> kick &bull; <b>E</b> special &bull; <b>1-4</b> weapons</div>' +
             '<div><i class="p2">P2</i> <b>&#9664;</b><b>&#9654;</b><b>&#9650;</b><b>&#9660;</b> move &bull; <b>M</b> jump &bull; <b>O</b> duck &bull; <b>P</b> punch &bull; <b>K</b> kick &bull; <b>L</b> special &bull; <b>NUM 1-4</b> weapons &bull; <b>B</b> aabb</div>';
@@ -927,6 +954,7 @@
     function update(dt) {
         if (hitStop > 0) { hitStop -= dt; dt *= 0.04; } else if (slowT > 0) { slowT -= dt; dt *= 0.3; }      // impact freeze / boss slow-motion
         S.t += dt;
+        if (BOT && !NQ.on && PL[1]) botThink(PL[1], dt);
         PL.forEach(function (p) { as(p, function () { stepPlayer(p, dt); }); });
         ['shield', 'rage', 'lucky', 'freeze', 'magnet'].forEach(function (k) { S.f[k] = Math.max(0, S.f[k] - dt); });
         PL.forEach(function (p) { as(p, function () { playerHits(dt); }); });
@@ -1216,7 +1244,7 @@
 
     // ---------- two devices (Bluetooth): the HOST phone plays the whole level, the GUEST phone sends its buttons and draws what the host reports ----------
     // Player 1 (main character) = host.  Player 2 (a heroine) = guest.  Coins and gems are shared: both phones bank them.
-    const NT = window.RunMilNet, DD = window.RUNMIL_DUO, NETOK = !!(NT && NT.available && NT.available() && DD);
+    const NT = window.RunMilNet, DD = window.RUNMIL_DUO, NETOK = !!(NT && NT.available && NT.available() && DD) && !BOT;
     let nseq = 0, ntT = 0, lastKey = "";
     function nsend(o) { if (NQ.on && NT) NT.send(o); }
     function myHero() { const open = DD.heroines.filter(function (h) { return getProg().cleared[h.level]; }), cur = DD.byId(duoSave().p2); return cur && getProg().cleared[cur.level] ? cur : open[0] || DD.heroines[0]; }

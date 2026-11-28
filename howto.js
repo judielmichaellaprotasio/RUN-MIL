@@ -281,7 +281,7 @@
         keyRow(["B"], "AABB VISION", "Turns the AABB view on or off: the invisible boxes, the x and y axis bars, and the COLLISION! text with its colors."),
         keyRow(["ESC"], "PAUSE", "Pause the fight.")
     ].concat(window.RUNMIL_DUO && RUNMIL_DUO.enabled ? [
-        keyRow(["2 PLAYERS"], "WEB VERSION ONLY", "Clear Level 1, 2 or 3 to unlock a heroine, then pick 2 PLAYERS on the level screen. <b>Player 1:</b> A D W S move, SPACE jump, C crouch, R punch, F kick, E special, number row 1-4 weapons. <b>Player 2:</b> arrow keys move, M jump, O crouch, P punch, K kick, L special, number pad 1-4 weapons.")
+        keyRow(["2 PLAYERS"], "PLAYER 2 = BOT ON PHONES", "On a phone the computer plays Player 2. Clear Level 1, 2 or 3 to unlock a heroine, then pick 2 PLAYERS on the level screen. <b>Player 1:</b> A D W S move, SPACE jump, C crouch, R punch, F kick, E special, number row 1-4 weapons. <b>Player 2:</b> arrow keys move, M jump, O crouch, P punch, K kick, L special, number pad 1-4 weapons.")
     ] : []).join("");
 
     // ---------- the full HOW TO PLAY overlay ----------
@@ -378,7 +378,7 @@
         versus: {
             title: "GAME MECHANICS - 1 VS 1",
             items: [
-                ["GOAL", "Two players: one keyboard, or <b>two phones</b> linked by Bluetooth in the Android app. Pick a fighter each and win <b>more rounds</b> than your rival over <b>3 rounds</b>. The winner gets the trophy screen."],
+                ["GOAL", "Two players on one keyboard, or on a phone <b>you against the computer</b>. Pick a fighter each and win <b>more rounds</b> than your rival over <b>3 rounds</b>. The winner gets the trophy screen."],
                 ["ROUNDS", "A round lasts <b>60 seconds</b>. Win it by a <b>K.O.</b>, or by having more HP when time runs out. Equal HP is a draw. If the 3 rounds end level, a <b>sudden-death</b> round decides."],
                 ["HP AND EN", "Each fighter has their own <b>HP</b> and <b>EN</b>. EN fills as you land hits (and a little when you are hit). When it is full, press your <b>special</b> key."],
                 ["DODGING", "<b>Duck</b> to slip under a punch (kicks still hit you). <b>Jump</b> to clear a kick or a shockwave. Use <b>W / S</b> (or the up and down arrows) to change lane: attacks only hit in <b>your lane</b>."]
@@ -443,12 +443,12 @@
              ["CHARM: TIDAL WAVE", "Waves of water burst out of the ground in front of her and <b>wash</b> the other fighter away. Needs a full EN bar."]
             ].forEach(function (it) { p7.appendChild(h("div", "rmx-m big", "<h4>" + it[0] + "</h4><p>" + it[1] + "</p>")); });
             pages.push(p7);
-            titles.push("TWO PHONES");
+            titles.push("VS THE COMPUTER");
             const p8 = h("div", "rmx-mech-grid");
-            [["LINK THE PHONES", "No internet needed. Switch <b>Bluetooth</b> ON on both phones and keep them close. The host taps <b>HOST A GAME</b>, the other taps <b>JOIN A GAME</b> and then the <b>host's name</b>. Allow the Bluetooth / Nearby permissions when Android asks."],
-             ["PICK AND FIGHT", "Each player picks their <b>own fighter</b> on their own phone. The host picks the arena and presses <b>FIGHT</b>. A heroine can be used by a friend even if you have not unlocked her yet."],
+            [["PLAYER 2 IS A BOT", "On a phone the computer plays Player 2. Pick <b>your fighter</b> and the <b>computer's fighter</b> (the card under COMPUTER), then press <b>FIGHT</b>. Nothing to connect."],
+             ["PICK AND FIGHT", "Win <b>more rounds</b> than the computer over 3 rounds. Heroines you have not unlocked yet are locked for you too."],
              ["TOUCH CONTROLS", "A <b>cross pad</b> on the left (slide your thumb: left / right run, up / down change lane) and the <b>JUMP, PUNCH, KICK, SPECIAL and DUCK</b> buttons on the right."],
-             ["STAY CLOSE", "Keep the phones within a few metres. If the link drops, the match ends and you can connect again from the same screen. Pause is off while playing over the link."]
+             ["TIP", "Duck to dodge a high punch, jump over a kick, and fill the energy bar for your special. Pause is the button at the top."]
             ].forEach(function (it) { p8.appendChild(h("div", "rmx-m big", "<h4>" + it[0] + "</h4><p>" + it[1] + "</p>")); });
             pages.push(p8);
         }

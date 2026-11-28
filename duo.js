@@ -9,11 +9,11 @@
    The HEROINES screen in the main menu shows each heroine as a mystery ("???" + a silhouette with a question mark) until her  revealed  is set to true.
    Then it shows her  name,  desc  (her description) and  img  (a picture, optional: the silhouette is used without it).
 
-   The 2 player mode is switched OFF inside the Android app and on touch screens (it needs two people on one keyboard). */
+   On the Android app and touch screens Player 2 is a bot (the computer); with a keyboard two people can play together. */
 (function () {
     "use strict";
     const touch = !!(window.matchMedia && matchMedia("(pointer: coarse)").matches) || /[?&]touch=1/.test(location.search);
-    const enabled = !window.RUNMIL_NATIVE && !touch;
+    const enabled = true;                           // phones too: there Player 2 is played by the computer (a bot)
     const HEROINES = [
         { id: "h1", name: "SHAI", special: "land", level: 1, fx: { src: "visuals/heroines/h1/land.png", fw: 271, fh: 172, n: 9, ms: 110 }, color: "#b05cff", tint: "rgba(255,70,160,.55)", revealed: true, img: "visuals/heroines/h1/portrait.png", face: "visuals/heroines/h1/face.png",
           desc: "Shai never skips a sidequest! Always chasing adventures and trouble, she never backs down. With her earth powers, she summons deadly spikes from the ground to crush her enemies.",

@@ -14,7 +14,8 @@
     // ---------- two-device play (Bluetooth / Nearby): the HOST phone runs the fight, the GUEST phone sends its buttons and draws what the host reports ----------
     const NT = window.RunMilNet, NET = { on: false, host: false, slot: 0, q: [], t: 0, seq: 0, last: 0, name: "" };
     const TOUCHY = !!window.RUNMIL_NATIVE || (window.matchMedia && matchMedia("(pointer: coarse)").matches) || /[?&]touch=1/.test(location.search);
-    const ONLY_NET = TOUCHY && !!(NT && NT.available());                   // on a phone there is no keyboard: 1 VS 1 is always played over the link
+    const BOT = TOUCHY && !/[?&]nettest=1/.test(location.search);              // on a phone Player 2 is played by the computer
+    const ONLY_NET = TOUCHY && !BOT && !!(NT && NT.available());                   // on a phone there is no keyboard: 1 VS 1 is always played over the link
     function nsend(o) { if (NET.on && NT) NT.send(o); }
     function SF(n, a) { SFX(n, a); if (NET.on && NET.host) NET.q.push(["s", n, a || 0]); }            // a sound made by the fight: the guest hears it too
     function rr(v, d) { const k = d === 3 ? 1000 : d === 2 ? 100 : 10; return Math.round(v * k) / k; }
@@ -235,6 +236,21 @@
         f.x = Math.max(BX[0], Math.min(BX[1], f.x)); f.y = Math.max(arena.band[0], Math.min(arena.band[1], f.y));
         if (!f.act && f.stun <= 0 && !f.dead) f.face = o.x > f.x + 4 ? 1 : o.x < f.x - 4 ? -1 : f.face;                // always face the other fighter
     }
+    function botF(f, o, dt) {                                     // the computer plays Player 2
+        const b = f.bot || (f.bot = { t: 0, cd: 0.7, sp: 0 }), k = f.keys;
+        b.cd -= dt; b.t -= dt; b.sp -= dt;
+        if (ph !== "fight" || f.dead || o.dead) { k.left = k.right = k.up = k.down = k.duck = false; return; }
+        if (f.stun > 0 || f.act || b.t > 0) return;
+        b.t = 0.08 + Math.random() * 0.12;
+        k.left = k.right = k.up = k.down = k.duck = false;
+        const dx = o.x - f.x, ax = Math.abs(dx), dy = o.y - f.y;
+        if (Math.abs(dy) > 14) { if (dy > 0) k.down = true; else k.up = true; }
+        if (ax > 105) { if (dx > 0) k.right = true; else k.left = true; }
+        else if (ax < 55 && Math.random() < 0.35) { if (dx > 0) k.left = true; else k.right = true; }
+        if (o.act && ax < 170 && Math.random() < 0.3) { if (o.act.k === "punch") k.duck = true; else press(f, "jump"); }
+        else if (ax <= 118 && Math.abs(dy) < 28 && b.cd <= 0) { press(f, ax > 104 || Math.random() < 0.45 ? "kick" : "punch"); b.cd = 0.6 + Math.random() * 0.7; }
+        if (f.en >= 100 && b.sp <= 0 && ax < 260) { press(f, "special"); b.sp = 3; }
+    }
     function separate() {                                         // the two fighters can't walk through each other
         const a = F[0], b = F[1]; if (a.dead || b.dead) return;
         const dx = b.x - a.x; if (Math.abs(dx) < 46 && Math.abs(a.y - b.y) < 26 && Math.abs(a.z - b.z) < 100) { const push = (46 - Math.abs(dx)) / 2 * (dx >= 0 ? 1 : -1); a.x -= push; b.x += push; }
@@ -325,7 +341,7 @@
         } else if (ph === "ko") { if (pt > 2.6) afterKO(); }
         else if (ph === "result") { if (pt > 2) afterResult(); }
         else if (ph === "gg") { if (pt > 1.8) showWin(); }
-        if (F.length) { stepF(F[0], F[1], dt); stepF(F[1], F[0], dt); separate(); updateObjs(dt); }
+        if (F.length) { if (BOT && !NET.on && F.length > 1) botF(F[1], F[0], dt); stepF(F[0], F[1], dt); stepF(F[1], F[0], dt); separate(); updateObjs(dt); }
         parts.forEach(function (p) { p.t += dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 700 * dt; }); parts = parts.filter(function (p) { return p.t < p.life; });
         floats.forEach(function (f) { f.a += dt; f.y -= 50 * dt; }); floats = floats.filter(function (f) { return f.a < 0.9; });
         if (ph !== "select" && F.length) hud();
@@ -582,7 +598,7 @@
         $("stage").classList.toggle("netplay", NET.on);
         const f = $("fight"); f.disabled = NET.on && !NET.host; f.textContent = NET.on && !NET.host ? "WAITING FOR HOST..." : "FIGHT!";
         $("pn-" + me).querySelector("h3").textContent = NET.on ? "YOU" : "PLAYER " + me;
-        $("pn-" + rem).querySelector("h3").textContent = NET.on ? (NT.peerName() || "FRIEND") : "PLAYER " + rem;
+        $("pn-" + rem).querySelector("h3").textContent = NET.on ? (NT.peerName() || "FRIEND") : BOT && rem === 2 ? "COMPUTER" : "PLAYER " + rem;
         $("sel-sub").textContent = NET.on ? (NET.host ? "Pick your fighter and the arena. Press FIGHT when your friend is ready!" : "Pick your fighter. The host chooses the arena and starts the match.") : "Pick your fighters. Best of three rounds. Last one standing wins!";
     }
     function startNet(role) {
@@ -620,7 +636,7 @@
     if (NT) {
         NT.on("msg", onNet);
         NT.on("close", lost);
-        if (NT.available() && !ONLY_NET) { const nb = $("vs-net"); nb.hidden = false; nb.addEventListener("click", function () { showLobby(""); }); }
+        if (NT.available() && !ONLY_NET && !BOT) { const nb = $("vs-net"); nb.hidden = false; nb.addEventListener("click", function () { showLobby(""); }); }
     }
 
     // ---------- main loop ----------
@@ -633,7 +649,7 @@
         requestAnimationFrame(loop);
     }
     $("vs-how").addEventListener("click", function () { if (window.RMX) RMX.mechanics("versus", null, true); });
-    buildSelect(); requestAnimationFrame(loop);
+    buildSelect(); if (BOT) netUI(); requestAnimationFrame(loop);
     if (ONLY_NET) showLobby("");
     if (window.RMX) RMX.mechanics("versus");                                  // the game mechanics card when 1 VS 1 opens (can be switched off; HOW TO PLAY brings it back)
     window.__vs = { net: NET, snap: sendSnap, state: function () { return { ph: ph, rn: rn, wins: wins.slice(), F: F, objs: objs, time: timeLeft }; }, F: function () { return F; }, pick: pick, start: startMatch, hurt: hurt, kill: function (i) { F[i].hp = 0; F[i].dead = 1; F[i].deadT = 0; }, skip: function () { pt = 99; }, special: special };
