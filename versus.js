@@ -83,7 +83,7 @@
     const sv = (function () { try { return JSON.parse(localStorage.getItem(KEY) || "{}") || {}; } catch (e) { return {}; } })();
     const pick = [0, 1], ar = { i: -1 };
     function okIdx(i, other) { return CH[i] && CH[i].open ? i : (other === 0 ? 1 : 0); }
-    if (typeof sv.p1 === "number" && CH[sv.p1] && CH[sv.p1].open) pick[0] = sv.p1;
+    if (typeof sv.p1 === "number" && CH[sv.p1] && CH[sv.p1].open && !BOT) pick[0] = sv.p1;
     if (typeof sv.p2 === "number" && CH[sv.p2] && CH[sv.p2].open) pick[1] = sv.p2; else pick[1] = CH.findIndex(function (c, i) { return i > 0 && c.open; }) > 0 ? CH.findIndex(function (c, i) { return i > 0 && c.open; }) : 0;
     if (typeof sv.ar === "number") ar.i = sv.ar;
     function save() { try { localStorage.setItem(KEY, JSON.stringify({ p1: pick[0], p2: pick[1], ar: ar.i })); } catch (e) { /* storage unavailable */ } }
@@ -241,15 +241,16 @@
         b.cd -= dt; b.t -= dt; b.sp -= dt;
         if (ph !== "fight" || f.dead || o.dead) { k.left = k.right = k.up = k.down = k.duck = false; return; }
         if (f.stun > 0 || f.act || b.t > 0) return;
-        b.t = 0.08 + Math.random() * 0.12;
+        b.t = 0.2 + Math.random() * 0.25;                       // slow reactions: the computer is clearly weaker than you
         k.left = k.right = k.up = k.down = k.duck = false;
+        if (Math.random() < 0.18) return;                       // sometimes it just stands there
         const dx = o.x - f.x, ax = Math.abs(dx), dy = o.y - f.y;
-        if (Math.abs(dy) > 14) { if (dy > 0) k.down = true; else k.up = true; }
+        if (Math.abs(dy) > 26) { if (dy > 0) k.down = true; else k.up = true; }   // sloppy lane aim: some of its hits miss
         if (ax > 105) { if (dx > 0) k.right = true; else k.left = true; }
         else if (ax < 55 && Math.random() < 0.35) { if (dx > 0) k.left = true; else k.right = true; }
-        if (o.act && ax < 170 && Math.random() < 0.3) { if (o.act.k === "punch") k.duck = true; else press(f, "jump"); }
-        else if (ax <= 118 && Math.abs(dy) < 28 && b.cd <= 0) { press(f, ax > 104 || Math.random() < 0.45 ? "kick" : "punch"); b.cd = 0.6 + Math.random() * 0.7; }
-        if (f.en >= 100 && b.sp <= 0 && ax < 260) { press(f, "special"); b.sp = 3; }
+        if (o.act && ax < 170 && Math.random() < 0.1) { if (o.act.k === "punch") k.duck = true; else press(f, "jump"); }
+        else if (ax <= 118 && Math.abs(dy) < 28 && b.cd <= 0) { press(f, ax > 104 || Math.random() < 0.45 ? "kick" : "punch"); b.cd = 1.1 + Math.random() * 0.9; }
+        if (f.en >= 100 && b.sp <= 0 && ax < 260) { if (Math.random() < 0.4) press(f, "special"); b.sp = 5; }
     }
     function separate() {                                         // the two fighters can't walk through each other
         const a = F[0], b = F[1]; if (a.dead || b.dead) return;
@@ -514,6 +515,7 @@
         [1, 2].forEach(function (n) {
             const box = $("cd" + n); box.innerHTML = "";
             for (let i = 0; i < 5; i++) {
+                if (BOT && n === 1 && i > 0) break;                  // Player 1 is always MIL on a phone
                 const c = CH[i], b = document.createElement("button"); b.className = "cd" + (c && c.open ? "" : " lock"); b.dataset.i = i;
                 const cn = document.createElement("canvas"); cn.width = cn.height = 100; b.appendChild(cn);
                 const sp = document.createElement("span"); sp.textContent = c && c.open ? c.name : "???"; b.appendChild(sp); box.appendChild(b);
@@ -527,7 +529,7 @@
         ab.onclick = function (e) { const b = e.target.closest(".ar"); if (!b) return; if (NET.on && !NET.host) return; ar.i = +b.dataset.i; sel(); pushSel(); };
         sel();
     }
-    function cyc(p, d) { let i = pick[p]; for (let k = 0; k < CH.length; k++) { i = (i + d + CH.length) % CH.length; if (CH[i].open) break; } pick[p] = i; SFX("item"); sel(); pushSel(); }
+    function cyc(p, d) { if (BOT && p === 0) return; let i = pick[p]; for (let k = 0; k < CH.length; k++) { i = (i + d + CH.length) % CH.length; if (CH[i].open) break; } pick[p] = i; SFX("item"); sel(); pushSel(); }
     function oneLine(t) { t = (t || "").trim(); const m = t.match(/^.*?[.!?](?=\s|$)/); return m ? m[0] : t; }          // the pick screen shows only the first sentence of a description
     function sel() {
         [1, 2].forEach(function (n) {

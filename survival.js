@@ -200,7 +200,8 @@
         b.cd -= dt; b.t -= dt; b.sp -= dt;
         if (p.dead || ended || !running) { k.KeyA = k.KeyD = k.KeyW = k.KeyS = k.KeyC = false; return; }
         if (p.act || b.t > 0) return;
-        b.t = 0.09 + Math.random() * 0.12;
+        b.t = 0.2 + Math.random() * 0.25;                          // slow reactions: Player 2 is weaker than you
+        if (Math.random() < 0.15) return;                            // sometimes it hesitates
         k.KeyA = k.KeyD = k.KeyW = k.KeyS = k.KeyC = false;
         let tg = null, bd = 1e9, near = 0;
         mons.forEach(function (m) { if (m.st === "die") return; const d = Math.abs(m.x - p.x) + Math.abs(m.y - p.y) * 1.5; if (d < 300) near++; if (d < bd) { bd = d; tg = m; } });
@@ -216,8 +217,8 @@
         if (ax > 100) { if (dx > 0) k.KeyD = true; else k.KeyA = true; }
         else if (ax < 40 && Math.random() < 0.4) { if (dx > 0) k.KeyA = true; else k.KeyD = true; }
         else p.face = dx > 0 ? 1 : -1;
-        if (ax <= 118 && Math.abs(dy) <= lane && b.cd <= 0 && p.z <= 0) { as(p, function () { attack(ax > 100 || Math.random() < 0.4 ? "kick" : "punch"); }); b.cd = 0.3 + Math.random() * 0.35; }
-        if (b.sp <= 0 && (near >= 2 || (tg.d && tg.d.boss)) && p.en >= (p.h && p.h.special === "flames" ? 30 : 100) && ax < 320) { as(p, function () { special(); }); b.sp = 2.5; }
+        if (ax <= 118 && Math.abs(dy) <= lane && b.cd <= 0 && p.z <= 0) { as(p, function () { attack(ax > 100 || Math.random() < 0.4 ? "kick" : "punch"); }); b.cd = 0.9 + Math.random() * 0.8; }
+        if (b.sp <= 0 && Math.random() < 0.5 && (near >= 2 || (tg.d && tg.d.boss)) && p.en >= (p.h && p.h.special === "flames" ? 30 : 100) && ax < 320) { as(p, function () { special(); }); b.sp = 6; }
     }
     const nearest = function (m) { let b = null, bd = 1e9; PL.forEach(function (p) { if (p.dead) return; const d = Math.abs(p.x - m.x) + Math.abs(p.y - m.y) * 1.5; if (d < bd) { bd = d; b = p; } }); return b || PL[0]; };
 
